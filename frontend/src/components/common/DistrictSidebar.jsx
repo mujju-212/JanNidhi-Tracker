@@ -26,7 +26,7 @@ const items = [
   { label: 'Payment Status', icon: FileText, to: '/district/payment-status' },
   { label: 'Held Payments', icon: FileText, to: '/district/held-payments' },
   { label: 'Transactions', icon: ClipboardList, to: '/district/transactions' },
-  { label: 'Block Accounts', icon: Building2, to: '/district/blocks' },
+  { label: 'Taluk Accounts', icon: Building2, to: '/district/blocks' },
   { label: 'Panchayat Accounts', icon: Building2, to: '/district/panchayats' },
   { label: 'Complaints', icon: MessageCircle, to: '/district/complaints' },
   { label: 'Flag Center', icon: ShieldAlert, to: '/district/flags' },

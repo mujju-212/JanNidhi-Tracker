@@ -45,12 +45,12 @@ const titles = {
     subtitle: 'Track district-level transfers'
   },
   blocks: {
-    title: 'Block Accounts',
-    subtitle: 'Manage block-level accounts'
+    title: 'Taluk Accounts',
+    subtitle: 'Manage taluk-level accounts'
   },
   'create-block': {
-    title: 'Create Block',
-    subtitle: 'Provision new block accounts'
+    title: 'Create Taluk',
+    subtitle: 'Provision new taluk accounts'
   },
   panchayats: {
     title: 'Panchayat Accounts',
