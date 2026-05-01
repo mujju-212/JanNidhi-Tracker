@@ -187,11 +187,11 @@ exports.releaseFundsToState = async (req, res, next) => {
     const ministry = req.user;
 
     const received = await Transaction.aggregate([
-      { $match: { toCode: ministry.jurisdiction.ministryCode, status: 'confirmed' } },
+      { $match: { toCode: ministry.jurisdiction.ministryCode, status: { $in: ['confirmed', 'pending'] } } },
       { $group: { _id: null, total: { $sum: '$amountCrore' } } }
     ]);
     const released = await Transaction.aggregate([
-      { $match: { fromCode: ministry.jurisdiction.ministryCode, status: 'confirmed' } },
+      { $match: { fromCode: ministry.jurisdiction.ministryCode, status: { $in: ['confirmed', 'pending'] } } },
       { $group: { _id: null, total: { $sum: '$amountCrore' } } }
     ]);
 
@@ -207,17 +207,11 @@ exports.releaseFundsToState = async (req, res, next) => {
 
     const transactionId = `TXN-${Date.now()}-${ministry.jurisdiction.ministryCode}-${stateCode}`;
 
-    const bcResult = await blockchainService.releaseFunds(
-      stateWalletAddress,
-      amountCrore,
-      transactionId,
-      schemeId
-    );
-
+    // Save to DB immediately
     const tx = await Transaction.create({
       transactionId,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber,
+      blockchainTxHash: 'PENDING',
+      blockNumber: null,
       fromRole: 'ministry_admin',
       fromCode: ministry.jurisdiction.ministryCode,
       fromName: ministry.jurisdiction.ministry,
@@ -235,23 +229,27 @@ exports.releaseFundsToState = async (req, res, next) => {
     });
 
     const io = req.app.get('io');
-    emitToAuditors(io, 'new_transaction', {
-      transaction: tx,
-      type: 'STATE_RELEASE',
-      severity: 'normal'
-    });
+    emitToAuditors(io, 'new_transaction', { transaction: tx, type: 'STATE_RELEASE', severity: 'normal' });
+    flagEngine.runFlagChecks(tx, io).catch(e => console.error('Flag check error:', e.message));
 
-    await flagEngine.runFlagChecks(tx, io);
+    res.json({ success: true, message: 'Funds released to state', data: { transactionId } });
 
-    return success(res, 'Funds released', {
-      transactionId,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber
-    });
+    // Blockchain in background
+    const { blockchainReady } = require('../config/blockchain').getContracts();
+    if (blockchainReady) {
+      blockchainService.releaseFunds(stateWalletAddress, amountCrore, transactionId, schemeId)
+        .then(async (bcResult) => {
+          await Transaction.findByIdAndUpdate(tx._id, {
+            blockchainTxHash: bcResult.txHash, blockNumber: bcResult.blockNumber
+          });
+          console.log(`✅ Blockchain confirmed: ${transactionId}`);
+        }).catch(err => console.error(`❌ Blockchain failed: ${transactionId}:`, err.message));
+    }
   } catch (err) {
     next(err);
   }
 };
+
 
 exports.getTransactions = async (req, res, next) => {
   try {
