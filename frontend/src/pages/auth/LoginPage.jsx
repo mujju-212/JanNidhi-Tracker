@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Sparkles, Globe2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { apiPost } from '../../services/api.js';
+import slide1 from '../../assets/slide1.png';
+import slide2 from '../../assets/slide2.png';
+import slide3 from '../../assets/slide3.png';
+import slide4 from '../../assets/slide4.png';
+import slide5 from '../../assets/slide5.png';
 
 const roles = [
   { value: 'super_admin', label: 'Super Admin (Finance Ministry)' },
@@ -9,6 +15,7 @@ const roles = [
   { value: 'state_admin', label: 'State Admin' },
   { value: 'district_admin', label: 'District Admin' },
   { value: 'central_cag', label: 'CAG Auditor' },
+  { value: 'state_auditor', label: 'State Auditor' },
   { value: 'citizen', label: 'Citizen' }
 ];
 
@@ -18,8 +25,37 @@ const roleRoutes = {
   state_admin: '/state/dashboard',
   district_admin: '/district/dashboard',
   central_cag: '/auditor/dashboard',
+  state_auditor: '/auditor/dashboard',
   citizen: '/public/citizen-dashboard'
 };
+
+const slides = [
+  {
+    title: 'Transparent Fund Flow Across India',
+    desc: 'Track how public funds move from central ministries to states, districts, and beneficiaries in one unified view.',
+    image: slide1
+  },
+  {
+    title: 'Immutable Blockchain Audit Trail',
+    desc: 'Every transaction is securely recorded and cannot be altered, ensuring complete accountability and trust.',
+    image: slide2
+  },
+  {
+    title: 'Real-Time Fund Monitoring',
+    desc: 'Monitor allocations, releases, and utilization instantly with live dashboards and analytics.',
+    image: slide3
+  },
+  {
+    title: 'Smart Anomaly & Fraud Detection',
+    desc: 'Automatically detect suspicious transactions and flag irregularities before they become critical issues.',
+    image: slide4
+  },
+  {
+    title: 'Citizen-Centric Transparency',
+    desc: 'Citizens can verify benefits, track payments, and ensure rightful delivery without special access.',
+    image: slide5
+  }
+];
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -30,53 +66,119 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState(null);
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeSlide, setActiveSlide] = useState(0);
 
-  const handleSendOtp = () => {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleSendOtp = async () => {
     setError('');
+    setStatus('');
+
+    if (role === 'citizen') {
+      navigate('/public/citizen-login');
+      return;
+    }
+
     if (!email || !password) {
       setError('Enter email and password first.');
       return;
     }
-    setOtpSent(true);
+
+    setLoading(true);
+    try {
+      const response = await apiPost('/api/auth/login', { email, password });
+      setOtpSent(true);
+      setPendingUserId(response?.data?.userId || null);
+      setStatus(response?.message || 'OTP sent to registered phone.');
+    } catch (err) {
+      setError(err.message || 'Unable to send OTP.');
+      setOtpSent(false);
+      setPendingUserId(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
+    setStatus('');
     if (!otpSent || !otp) {
-      setError('Enter the OTP sent to your email.');
+      setError('Enter the OTP sent to your phone.');
       return;
     }
-    login({
-      role,
-      name: roles.find((item) => item.value === role)?.label || 'User',
-      email
-    });
-    navigate(roleRoutes[role] || '/login');
+    if (!pendingUserId) {
+      setError('Start with Send OTP first.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiPost('/api/auth/verify-otp', {
+        userId: pendingUserId,
+        otp
+      });
+      const payload = response?.data || {};
+      if (!payload.token || !payload.user) {
+        throw new Error('Invalid login response.');
+      }
+      login({ user: payload.user, token: payload.token });
+      const nextRole = payload.role || payload.user.role || role;
+      navigate(roleRoutes[nextRole] || '/login');
+    } catch (err) {
+      setError(err.message || 'Unable to verify OTP.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="login-page">
       <div className="login-hero">
-        <div>
-          <h1>JanNidhi Tracker</h1>
-          <p>
-            Real-time transparency for public fund management. Track every
-            allocation, release, and beneficiary payment from one trusted view.
-          </p>
-          <div style={{ display: 'grid', gap: '12px', marginTop: '28px' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <ShieldCheck size={18} color="#0f4aa7" />
-              Immutable blockchain audit trail
+        <div className="login-slide" key={activeSlide}>
+          <img
+            src={slides[activeSlide].image}
+            alt=""
+            className="login-slide-image"
+          />
+          <div className="login-slide-overlay" />
+          <div className="login-slide-content">
+            <div className="login-slide-kicker">JanNidhi Tracker</div>
+            <h2>{slides[activeSlide].title}</h2>
+            <p>{slides[activeSlide].desc}</p>
+            <div className="login-slide-icons">
+              <div>
+                <ShieldCheck size={16} />
+                Trusted audit
+              </div>
+              <div>
+                <Sparkles size={16} />
+                Smart flags
+              </div>
+              <div>
+                <Globe2 size={16} />
+                Citizen view
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <Sparkles size={18} color="#16b6a4" />
-              Automated anomaly flags in seconds
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <Globe2 size={18} color="#0f4aa7" />
-              Public transparency with citizen verification
-            </div>
+          </div>
+          <div className="login-slide-dots">
+            {slides.map((item, index) => (
+              <button
+                key={item.title}
+                type="button"
+                className={index === activeSlide ? 'dot active' : 'dot'}
+                onClick={() => setActiveSlide(index)}
+                aria-label={`Show slide ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
         <p className="helper">Secure access for government officials only.</p>
@@ -124,17 +226,19 @@ export default function LoginPage() {
               value={otp}
               onChange={(event) => setOtp(event.target.value)}
             />
-            <span className="helper">Dev OTP: 123456</span>
+            <span className="helper">Check server logs for the mock OTP.</span>
           </div>
         ) : null}
+
+        {status ? <div className="helper">{status}</div> : null}
 
         {error ? <div className="alert">{error}</div> : null}
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-          <button className="btn secondary" type="button" onClick={handleSendOtp}>
+          <button className="btn secondary" type="button" onClick={handleSendOtp} disabled={loading}>
             Send OTP
           </button>
-          <button className="btn" type="button" onClick={handleLogin}>
+          <button className="btn" type="button" onClick={handleLogin} disabled={loading}>
             Login Securely
           </button>
         </div>
