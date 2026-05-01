@@ -1,41 +1,48 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
-
-const transactions = [
-  {
-    id: 'TXN-001',
-    from: 'Finance Ministry',
-    to: 'MoHFW',
-    amount: '22186',
-    scheme: 'Ayushman Bharat',
-    status: 'confirmed',
-    hash: '0xa3f9c2e8b4d7...',
-    date: '01 Apr 2024'
-  },
-  {
-    id: 'TXN-002',
-    from: 'Finance Ministry',
-    to: 'MoEdu',
-    amount: '14500',
-    scheme: 'PM POSHAN',
-    status: 'confirmed',
-    hash: '0xa7f4c2e8b9d1...',
-    date: '01 Apr 2024'
-  },
-  {
-    id: 'TXN-003',
-    from: 'Finance Ministry',
-    to: 'MoAgri',
-    amount: '1250',
-    scheme: 'PM-KISAN',
-    status: 'flagged',
-    hash: '0xac3f1123b4d7...',
-    date: '03 Apr 2024'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 export default function SABudgetHistory() {
-  const [selected, setSelected] = useState(transactions[0]);
+  const [transactions, setTransactions] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/superadmin/transactions')
+      .then((response) => {
+        if (!mounted) return;
+        const items = response?.data || [];
+        const mapped = items.map((tx) => ({
+          id: tx.transactionId,
+          from: tx.fromName || tx.fromRole || '-',
+          to: tx.toName || tx.toRole || '-',
+          amount: tx.amountCrore ?? 0,
+          scheme: tx.schemeName || '-',
+          status: tx.status || '-',
+          hash: tx.blockchainTxHash || 'N/A',
+          date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'
+        }));
+        setTransactions(mapped);
+        setSelected(mapped[0] || null);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load transactions.');
+        setTransactions([]);
+        setSelected(null);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
@@ -88,6 +95,20 @@ export default function SABudgetHistory() {
             </tr>
           </thead>
           <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="8" className="helper">
+                  Loading transactions...
+                </td>
+              </tr>
+            ) : null}
+            {error ? (
+              <tr>
+                <td colSpan="8" className="helper">
+                  {error}
+                </td>
+              </tr>
+            ) : null}
             {transactions.map((tx) => (
               <tr key={tx.id}>
                 <td>{tx.id}</td>
@@ -109,14 +130,18 @@ export default function SABudgetHistory() {
       </Card>
 
       <Card title="Block Details">
-        <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-          <div>Transaction ID: {selected.id}</div>
-          <div>Block Hash: {selected.hash}</div>
-          <div>From Wallet: 0x1a2b3c...</div>
-          <div>To Wallet: 0x4a9f2c...</div>
-          <div>Amount: Rs {selected.amount} Cr</div>
-          <div>Timestamp: {selected.date} 09:00 AM</div>
-        </div>
+        {selected ? (
+          <div className="helper" style={{ display: 'grid', gap: '8px' }}>
+            <div>Transaction ID: {selected.id}</div>
+            <div>Block Hash: {selected.hash}</div>
+            <div>From Wallet: -</div>
+            <div>To Wallet: -</div>
+            <div>Amount: Rs {selected.amount} Cr</div>
+            <div>Timestamp: {selected.date}</div>
+          </div>
+        ) : (
+          <div className="helper">Select a transaction to view block details.</div>
+        )}
       </Card>
     </div>
   );

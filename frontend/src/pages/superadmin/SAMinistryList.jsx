@@ -1,40 +1,47 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const ministries = [
-  {
-    id: 'mohfw',
-    name: 'Ministry of Health & Family Welfare',
-    hod: 'Dr. Mansukh Mandaviya',
-    wallet: '0x4a9f...1b2c',
-    budgetCap: '89155',
-    used: '64210',
-    status: 'active'
-  },
-  {
-    id: 'moedu',
-    name: 'Ministry of Education',
-    hod: 'Shri Sanjay Kumar',
-    wallet: '0x9c1d...7a88',
-    budgetCap: '64500',
-    used: '51200',
-    status: 'active'
-  },
-  {
-    id: 'moagri',
-    name: 'Ministry of Agriculture',
-    hod: 'Shri Sanjay Agarwal',
-    wallet: '0x1f2e...9c03',
-    budgetCap: '51200',
-    used: '28500',
-    status: 'inactive'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 export default function SAMinistryList() {
   const [query, setQuery] = useState('');
+  const [ministries, setMinistries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/superadmin/ministry/all')
+      .then((response) => {
+        if (!mounted) return;
+        const items = response?.data || [];
+        const mapped = items.map((item) => ({
+          id: item._id || item.jurisdiction?.ministryCode || item.email,
+          name: item.jurisdiction?.ministry || 'Ministry',
+          hod: item.fullName,
+          wallet: item.walletAddress || '-',
+          budgetCap: item.budgetCapCrore ?? 0,
+          used: null,
+          status: item.isActive ? 'active' : 'inactive'
+        }));
+        setMinistries(mapped);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load ministries.');
+        setMinistries([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -75,13 +82,27 @@ export default function SAMinistryList() {
           </tr>
         </thead>
         <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="7" className="helper">
+                Loading ministries...
+              </td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="7" className="helper">
+                {error}
+              </td>
+            </tr>
+          ) : null}
           {filtered.map((item) => (
             <tr key={item.name}>
               <td>{item.name}</td>
               <td>{item.hod}</td>
               <td>{item.wallet}</td>
               <td>Rs {item.budgetCap}</td>
-              <td>Rs {item.used}</td>
+              <td>{item.used === null ? '-' : `Rs ${item.used}`}</td>
               <td>
                 <Badge
                   tone={item.status === 'active' ? 'low' : 'medium'}

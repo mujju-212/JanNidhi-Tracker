@@ -1,62 +1,12 @@
-import {
-  Landmark,
-  Banknote,
-  Send,
-  Users,
-  Flag,
-  Building2
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Landmark, Send, Users, Flag, Building2 } from 'lucide-react';
 import Card from '../../components/common/Card.jsx';
 import StatCard from '../../components/common/StatCard.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import FundFlowSankey from '../../components/charts/FundFlowSankey.jsx';
 import UtilizationDonut from '../../components/charts/UtilizationDonut.jsx';
 import IndiaMapPanel from '../../components/charts/IndiaMapPanel.jsx';
-
-const statCards = [
-  {
-    title: 'Total Budget (Approved)',
-    value: '₹48.21 L Cr',
-    sub: '100% of Total Budget',
-    accent: '#0f4aa7',
-    icon: Landmark
-  },
-  {
-    title: 'Total Allocated',
-    value: '₹32.14 L Cr',
-    sub: '66.7% of Total Budget',
-    accent: '#16b6a4',
-    icon: Banknote
-  },
-  {
-    title: 'Total Released',
-    value: '₹28.90 L Cr',
-    sub: '60.0% of Total Budget',
-    accent: '#1aa26f',
-    icon: Send
-  },
-  {
-    title: 'Reached Beneficiaries',
-    value: '₹24.10 L Cr',
-    sub: '49.98% of Total Budget',
-    accent: '#0f7aa7',
-    icon: Users
-  },
-  {
-    title: 'Active Flags',
-    value: '47',
-    sub: 'Needs attention',
-    accent: '#e8515b',
-    icon: Flag
-  },
-  {
-    title: 'Active Ministries',
-    value: '28',
-    sub: 'Across India',
-    accent: '#334155',
-    icon: Building2
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 const sankeyData = {
   nodes: [
@@ -95,56 +45,115 @@ const sankeyData = {
   ]
 };
 
-const utilizationData = [
-  { name: 'Released', value: 60, color: '#0f4aa7' },
-  { name: 'Utilized', value: 49.98, color: '#16b6a4' },
-  { name: 'Unutilized', value: 10.02, color: '#f2a93b' }
-];
-
-const alerts = [
-  {
-    id: 'FLAG-2024-047',
-    type: 'Duplicate Beneficiary',
-    description: 'Aadhaar XXXX-XXXX-1234 already exists',
-    location: 'Bihar, Gaya',
-    severity: 'high',
-    date: '20 May 2024'
-  },
-  {
-    id: 'FLAG-2024-046',
-    type: 'Payment Anomaly',
-    description: 'Amount exceeds threshold limit',
-    location: 'UP, Lucknow',
-    severity: 'medium',
-    date: '20 May 2024'
-  },
-  {
-    id: 'FLAG-2024-045',
-    type: 'Inactive Account',
-    description: 'Bank account inactive for 90+ days',
-    location: 'MP, Bhopal',
-    severity: 'low',
-    date: '19 May 2024'
-  },
-  {
-    id: 'FLAG-2024-044',
-    type: 'Geo mismatch',
-    description: 'Location data mismatch detected',
-    location: 'RJ, Jaipur',
-    severity: 'medium',
-    date: '19 May 2024'
-  },
-  {
-    id: 'FLAG-2024-043',
-    type: 'Document Expiry',
-    description: 'KYC document expired',
-    location: 'WB, Kolkata',
-    severity: 'low',
-    date: '18 May 2024'
-  }
-];
+const formatCrore = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `Rs ${Number(value).toFixed(2)} Cr`;
+};
 
 export default function SADashboard() {
+  const [stats, setStats] = useState({
+    allocated: 0,
+    released: 0,
+    paid: 0,
+    activeFlags: 0,
+    ministries: 0
+  });
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+
+    Promise.all([
+      apiGet('/api/public/stats'),
+      apiGet('/api/superadmin/dashboard'),
+      apiGet('/api/superadmin/flags')
+    ])
+      .then(([publicStats, adminStats, flagsResponse]) => {
+        if (!mounted) return;
+        const publicData = publicStats?.data || {};
+        const adminData = adminStats?.data || {};
+
+        setStats({
+          allocated: publicData.allocated ?? adminData.allocated ?? 0,
+          released: publicData.released ?? adminData.released ?? 0,
+          paid: publicData.paidToBeneficiaries ?? 0,
+          activeFlags: adminData.activeFlags ?? publicData.activeFlags ?? 0,
+          ministries: adminData.ministries ?? 0
+        });
+
+        const flags = flagsResponse?.data || [];
+        const mapped = flags.slice(0, 6).map((flag) => ({
+          id: flag.flagId,
+          type: flag.flagCode || 'FLAG',
+          description: flag.flagReason || 'Flag raised',
+          location: [flag.stateCode, flag.districtCode].filter(Boolean).join(', ') || '-',
+          severity: flag.flagType || 'info',
+          date: flag.createdAt ? new Date(flag.createdAt).toLocaleDateString() : '-'
+        }));
+        setAlerts(mapped);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load dashboard data.');
+        setAlerts([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const statCards = [
+    {
+      title: 'Total Allocated',
+      value: formatCrore(stats.allocated),
+      sub: 'Allocated from finance ministry',
+      accent: '#2f6fdc',
+      icon: Landmark
+    },
+    {
+      title: 'Total Released',
+      value: formatCrore(stats.released),
+      sub: 'Released downstream',
+      accent: '#2458b7',
+      icon: Send
+    },
+    {
+      title: 'Reached Beneficiaries',
+      value: formatCrore(stats.paid),
+      sub: 'Paid to citizens',
+      accent: '#1aa26f',
+      icon: Users
+    },
+    {
+      title: 'Active Flags',
+      value: String(stats.activeFlags || 0),
+      sub: 'Needs attention',
+      accent: '#e25562',
+      icon: Flag
+    },
+    {
+      title: 'Active Ministries',
+      value: String(stats.ministries || 0),
+      sub: 'Admin accounts',
+      accent: '#334155',
+      icon: Building2
+    }
+  ];
+
+  const utilizationData = [
+    { name: 'Released', value: stats.released, color: '#2f6fdc' },
+    { name: 'Utilized', value: stats.paid, color: '#7fd3f7' },
+    { name: 'Unutilized', value: Math.max(stats.released - stats.paid, 0), color: '#f2b24c' }
+  ];
+
   return (
     <div className="grid" style={{ gap: '22px' }}>
       <div className="grid stats">
@@ -160,9 +169,11 @@ export default function SADashboard() {
         <Card title="Fund Utilization Overview" action={<span className="helper">This Year</span>}>
           <UtilizationDonut data={utilizationData} />
           <div style={{ display: 'grid', gap: '8px' }}>
-            <div className="helper">Released: ₹28.90 L Cr (60%)</div>
-            <div className="helper">Utilized: ₹24.10 L Cr (49.98%)</div>
-            <div className="helper">Unutilized: ₹4.80 L Cr (10.02%)</div>
+            <div className="helper">Released: {formatCrore(stats.released)}</div>
+            <div className="helper">Utilized: {formatCrore(stats.paid)}</div>
+            <div className="helper">
+              Unutilized: {formatCrore(Math.max(stats.released - stats.paid, 0))}
+            </div>
           </div>
         </Card>
       </div>
@@ -181,6 +192,20 @@ export default function SADashboard() {
               </tr>
             </thead>
             <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="helper">
+                    Loading alerts...
+                  </td>
+                </tr>
+              ) : null}
+              {error ? (
+                <tr>
+                  <td colSpan="6" className="helper">
+                    {error}
+                  </td>
+                </tr>
+              ) : null}
               {alerts.map((alert) => (
                 <tr key={alert.id}>
                   <td>{alert.id}</td>

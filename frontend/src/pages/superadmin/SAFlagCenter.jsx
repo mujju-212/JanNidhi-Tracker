@@ -1,42 +1,47 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const flags = [
-  {
-    id: 'FLAG-2024-047',
-    type: 'critical',
-    transaction: 'TXN-2024-MH-011',
-    ministry: 'MoHFW',
-    state: 'Bihar',
-    raisedBy: 'auto',
-    status: 'awaiting_response',
-    date: '20 May 2024'
-  },
-  {
-    id: 'FLAG-2024-046',
-    type: 'high',
-    transaction: 'TXN-2024-UP-008',
-    ministry: 'MoEdu',
-    state: 'UP',
-    raisedBy: 'auditor',
-    status: 'under_review',
-    date: '20 May 2024'
-  },
-  {
-    id: 'FLAG-2024-045',
-    type: 'medium',
-    transaction: 'TXN-2024-MP-004',
-    ministry: 'MoAgri',
-    state: 'MP',
-    raisedBy: 'citizen',
-    status: 'resolved',
-    date: '19 May 2024'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 export default function SAFlagCenter() {
   const [filter, setFilter] = useState('all');
+  const [flags, setFlags] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/superadmin/flags')
+      .then((response) => {
+        if (!mounted) return;
+        const items = response?.data || [];
+        const mapped = items.map((flag) => ({
+          id: flag.flagId,
+          type: flag.flagType,
+          transaction: flag.transactionId,
+          ministry: flag.ministryCode || '-',
+          state: flag.stateCode || '-',
+          raisedBy: flag.raisedByType || '-',
+          status: flag.status || '-',
+          date: flag.createdAt ? new Date(flag.createdAt).toLocaleDateString() : '-'
+        }));
+        setFlags(mapped);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load flags.');
+        setFlags([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = flags.filter((item) => filter === 'all' || item.type === filter);
 
@@ -69,6 +74,20 @@ export default function SAFlagCenter() {
           </tr>
         </thead>
         <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="9" className="helper">
+                Loading flags...
+              </td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="9" className="helper">
+                {error}
+              </td>
+            </tr>
+          ) : null}
           {filtered.map((flag) => (
             <tr key={flag.id}>
               <td>{flag.id}</td>
