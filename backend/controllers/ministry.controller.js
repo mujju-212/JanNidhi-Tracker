@@ -277,7 +277,92 @@ exports.getFlags = async (req, res, next) => {
 
 exports.getReports = async (req, res, next) => {
   try {
-    return success(res, 'Reports endpoint placeholder', []);
+    const ministryCode = req.user.jurisdiction.ministryCode;
+    const { financialYear, schemeId, stateCode, fromDate, toDate } = req.query;
+
+    const baseMatch = { ministryCode, status: 'confirmed' };
+    if (financialYear) baseMatch.financialYear = financialYear;
+    if (schemeId) baseMatch.schemeId = schemeId;
+    if (stateCode) baseMatch.stateCode = stateCode;
+    if (fromDate || toDate) {
+      baseMatch.createdAt = {};
+      if (fromDate) baseMatch.createdAt.$gte = new Date(fromDate);
+      if (toDate) baseMatch.createdAt.$lte = new Date(toDate);
+    }
+
+    const received = await Transaction.aggregate([
+      { $match: { ...baseMatch, toCode: ministryCode } },
+      { $group: { _id: null, total: { $sum: '$amountCrore' } } }
+    ]);
+    const released = await Transaction.aggregate([
+      { $match: { ...baseMatch, fromCode: ministryCode } },
+      { $group: { _id: null, total: { $sum: '$amountCrore' } } }
+    ]);
+
+    const schemesTotal = await Scheme.countDocuments({ ownerMinistryCode: ministryCode });
+    const schemesActive = await Scheme.countDocuments({
+      ownerMinistryCode: ministryCode,
+      status: 'active'
+    });
+    const schemesPaused = await Scheme.countDocuments({
+      ownerMinistryCode: ministryCode,
+      status: 'paused'
+    });
+
+    const flagsOpen = await Flag.countDocuments({
+      ministryCode,
+      status: { $ne: 'resolved' }
+    });
+    const flagsByType = await Flag.aggregate([
+      { $match: { ministryCode } },
+      { $group: { _id: '$flagType', total: { $sum: 1 } } }
+    ]);
+
+    const releasesByState = await Transaction.aggregate([
+      { $match: { ...baseMatch, fromCode: ministryCode, stateCode: { $ne: null } } },
+      { $group: { _id: '$stateCode', total: { $sum: '$amountCrore' } } },
+      { $sort: { total: -1 } }
+    ]);
+
+    const releasesByScheme = await Transaction.aggregate([
+      { $match: { ...baseMatch, fromCode: ministryCode } },
+      {
+        $group: {
+          _id: { schemeId: '$schemeId', schemeName: '$schemeName' },
+          total: { $sum: '$amountCrore' }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+
+    const latestTransactions = await Transaction.find({
+      $or: [{ fromCode: ministryCode }, { toCode: ministryCode }]
+    })
+      .sort({ createdAt: -1 })
+      .limit(25);
+
+    const receivedTotal = received[0]?.total || 0;
+    const releasedTotal = released[0]?.total || 0;
+
+    return success(res, 'Reports loaded', {
+      totals: {
+        receivedCrore: receivedTotal,
+        releasedCrore: releasedTotal,
+        balanceCrore: receivedTotal - releasedTotal
+      },
+      schemes: {
+        total: schemesTotal,
+        active: schemesActive,
+        paused: schemesPaused
+      },
+      flags: {
+        open: flagsOpen,
+        byType: flagsByType
+      },
+      releasesByState,
+      releasesByScheme,
+      latestTransactions
+    });
   } catch (err) {
     next(err);
   }
