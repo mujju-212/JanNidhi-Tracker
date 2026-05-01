@@ -15,5 +15,9 @@ router.post('/payment/trigger', controller.triggerPayment);
 router.get('/payments', controller.getPayments);
 router.get('/complaints', controller.getComplaints);
 router.get('/flags', controller.getFlags);
+router.post('/taluk/create', controller.createTaluk);
+router.get('/taluk/all', controller.getTaluks);
+router.post('/panchayat/create', controller.createPanchayat);
+router.get('/panchayat/all', controller.getPanchayats);
 
 module.exports = router;

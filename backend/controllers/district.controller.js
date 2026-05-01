@@ -3,11 +3,14 @@ const Transaction = require('../models/Transaction.model');
 const Payment = require('../models/Payment.model');
 const Complaint = require('../models/Complaint.model');
 const Flag = require('../models/Flag.model');
+const Taluk = require('../models/Taluk.model');
+const Panchayat = require('../models/Panchayat.model');
 const blockchainService = require('../services/blockchain.service');
 const flagEngine = require('../services/flag.engine');
 const mockAadhaar = require('../services/mock.aadhaar');
 const mockNPCI = require('../services/mock.npci');
 const { hashAadhaar } = require('../utils/hashAadhaar');
+const { generateWallet } = require('../utils/generateWallet');
 const { emitToAuditors } = require('../config/socket');
 const { success, error } = require('../utils/apiResponse');
 
@@ -290,6 +293,117 @@ exports.getFlags = async (req, res, next) => {
     const districtCode = req.user.jurisdiction.districtCode;
     const flags = await Flag.find({ districtCode }).sort({ createdAt: -1 });
     return success(res, 'Flags loaded', flags);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createTaluk = async (req, res, next) => {
+  try {
+    const { name, officerName, email, phone } = req.body;
+    const { district, districtCode } = req.user.jurisdiction;
+
+    if (!name || !officerName) {
+      return error(res, 'Taluk name and officer name required', 400);
+    }
+
+    const existing = await Taluk.findOne({ districtCode, name });
+    if (existing) return error(res, 'Taluk already exists', 409);
+
+    const wallet = generateWallet();
+    const talukId = `TLK-${districtCode}-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+    const taluk = await Taluk.create({
+      talukId,
+      name,
+      district,
+      districtCode,
+      officerName,
+      email: email || null,
+      phone: phone || null,
+      walletAddress: wallet.address,
+      createdBy: req.user._id
+    });
+
+    return success(res, 'Taluk created', {
+      talukId: taluk.talukId,
+      name: taluk.name,
+      walletAddress: taluk.walletAddress,
+      officerName: taluk.officerName,
+      tempWallet: wallet
+    }, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getTaluks = async (req, res, next) => {
+  try {
+    const { districtCode } = req.user.jurisdiction;
+    const filter = { districtCode };
+    if (req.query.status) filter.status = req.query.status;
+
+    const taluks = await Taluk.find(filter).sort({ createdAt: -1 });
+    return success(res, 'Taluks loaded', taluks);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createPanchayat = async (req, res, next) => {
+  try {
+    const { name, officerName, email, phone, talukId } = req.body;
+    const { district, districtCode } = req.user.jurisdiction;
+
+    if (!name || !officerName || !talukId) {
+      return error(res, 'Panchayat name, officer name, and taluk required', 400);
+    }
+
+    const taluk = await Taluk.findOne({ talukId, districtCode });
+    if (!taluk) return error(res, 'Taluk not found', 404);
+
+    const existing = await Panchayat.findOne({ districtCode, talukId, name });
+    if (existing) return error(res, 'Panchayat already exists', 409);
+
+    const wallet = generateWallet();
+    const panchayatId = `PNC-${districtCode}-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+    const panchayat = await Panchayat.create({
+      panchayatId,
+      name,
+      talukId,
+      talukName: taluk.name,
+      district,
+      districtCode,
+      officerName,
+      email: email || null,
+      phone: phone || null,
+      walletAddress: wallet.address,
+      createdBy: req.user._id
+    });
+
+    return success(res, 'Panchayat created', {
+      panchayatId: panchayat.panchayatId,
+      name: panchayat.name,
+      walletAddress: panchayat.walletAddress,
+      officerName: panchayat.officerName,
+      taluk: panchayat.talukName,
+      tempWallet: wallet
+    }, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getPanchayats = async (req, res, next) => {
+  try {
+    const { districtCode } = req.user.jurisdiction;
+    const filter = { districtCode };
+    if (req.query.talukId) filter.talukId = req.query.talukId;
+    if (req.query.status) filter.status = req.query.status;
+
+    const panchayats = await Panchayat.find(filter).sort({ createdAt: -1 });
+    return success(res, 'Panchayats loaded', panchayats);
   } catch (err) {
     next(err);
   }
