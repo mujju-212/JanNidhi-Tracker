@@ -26,6 +26,7 @@ contract FundManager {
     }
 
     mapping(address => Ministry) public ministries;
+    mapping(address => bool) public registeredMinistries; // explicit existence check
     mapping(string => FundTransaction) public transactions;
     mapping(address => uint256) public walletBalance;
 
@@ -56,7 +57,8 @@ contract FundManager {
         string memory _code,
         uint256 _budgetCapCrore
     ) external onlySuperAdmin {
-        require(!ministries[_wallet].isActive, 'Ministry already exists');
+        require(!registeredMinistries[_wallet], 'Ministry already exists');
+        registeredMinistries[_wallet] = true;
         ministries[_wallet] = Ministry({
             name: _name,
             code: _code,
@@ -75,6 +77,7 @@ contract FundManager {
         string memory _transactionId,
         string memory _docHash
     ) external onlySuperAdmin {
+        require(registeredMinistries[_ministryWallet], 'Ministry not registered');
         require(ministries[_ministryWallet].isActive, 'Ministry not active');
         require(
             ministries[_ministryWallet].allocatedCrore + _amountCrore <= ministries[_ministryWallet].budgetCapCrore,

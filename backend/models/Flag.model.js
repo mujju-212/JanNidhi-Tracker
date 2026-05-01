@@ -56,7 +56,7 @@ const flagSchema = new mongoose.Schema(
     },
     escalationTarget: {
       type: String,
-      enum: ['finance_ministry', 'ministry_of_law', 'cbi_ed', null],
+      enum: ['finance_ministry', 'ministry_of_law', 'cbi_ed'],
       default: null
     },
     flagBlockchainTxHash: { type: String, default: null },
