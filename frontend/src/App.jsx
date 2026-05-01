@@ -74,6 +74,7 @@ import ExploreByScheme from './pages/public/ExploreByScheme.jsx';
 import VerifyTransaction from './pages/public/VerifyTransaction.jsx';
 import AadhaarLogin from './pages/public/AadhaarLogin.jsx';
 import CitizenDashboard from './pages/public/CitizenDashboard.jsx';
+import UserProfile from './pages/common/UserProfile.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="reports" element={<SAMasterReports />} />
         <Route path="users" element={<SAUserManagement />} />
         <Route path="settings" element={<SASystemSettings />} />
+        <Route path="profile" element={<UserProfile />} />
         <Route path=":section" element={<SAPlaceholder />} />
       </Route>
 
@@ -137,6 +139,7 @@ export default function App() {
         <Route path="transactions" element={<MinTransactions />} />
         <Route path="flags" element={<MinFlagCenter />} />
         <Route path="reports" element={<MinReports />} />
+        <Route path="profile" element={<UserProfile />} />
       </Route>
 
       <Route
@@ -161,6 +164,7 @@ export default function App() {
         <Route path="transactions" element={<STTransactions />} />
         <Route path="flags" element={<STFlagCenter />} />
         <Route path="reports" element={<STReports />} />
+        <Route path="profile" element={<UserProfile />} />
       </Route>
 
       <Route
@@ -190,6 +194,7 @@ export default function App() {
         <Route path="blocks" element={<DTBlockList />} />
         <Route path="create-panchayat" element={<DTCreatePanchayat />} />
         <Route path="panchayats" element={<DTPanchayatList />} />
+        <Route path="profile" element={<UserProfile />} />
       </Route>
 
       <Route
@@ -206,6 +211,7 @@ export default function App() {
         <Route path="flags" element={<CAGFlagManagement />} />
         <Route path="raise-flag" element={<CAGRaiseFlag />} />
         <Route path="reports" element={<CAGReports />} />
+        <Route path="profile" element={<UserProfile />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

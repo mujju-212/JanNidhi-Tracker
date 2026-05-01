@@ -55,6 +55,10 @@ const titles = {
   settings: {
     title: 'System Settings',
     subtitle: 'Configure system rules and controls'
+  },
+  profile: {
+    title: 'User Profile',
+    subtitle: 'Manage account details and profile picture'
   }
 };
 

@@ -55,6 +55,10 @@ const titles = {
   reports: {
     title: 'Reports',
     subtitle: 'Generate state compliance reports'
+  },
+  profile: {
+    title: 'User Profile',
+    subtitle: 'Manage account details and profile picture'
   }
 };
 

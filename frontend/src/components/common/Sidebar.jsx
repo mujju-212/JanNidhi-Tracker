@@ -11,6 +11,7 @@ import {
   Settings
 } from 'lucide-react';
 import emblem from '../../assets/emblem.jpg';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/superadmin/dashboard' },
@@ -25,6 +26,11 @@ const items = [
 ];
 
 export default function Sidebar() {
+  const { user } = useAuth();
+  const displayName = user?.fullName || 'Super Admin';
+  const displayRole = user?.designation || 'Finance Minister';
+  const profilePicture = user?.profilePicture || '';
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -55,15 +61,18 @@ export default function Sidebar() {
         })}
       </div>
 
-      <div className="sidebar-footer">
-        <div className="avatar" />
+      <NavLink
+        to="/superadmin/profile"
+        className={({ isActive }) =>
+          `sidebar-footer sidebar-profile-link${isActive ? ' active' : ''}`
+        }
+      >
+        <div className="avatar">{profilePicture ? <img src={profilePicture} alt={displayName} /> : null}</div>
         <div>
-          <strong>Nirmala Sitharaman</strong>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-            Finance Minister
-          </div>
+          <strong>{displayName}</strong>
+          <div className="helper">{displayRole}</div>
         </div>
-      </div>
+      </NavLink>
     </aside>
   );
 }

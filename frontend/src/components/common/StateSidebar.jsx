@@ -12,6 +12,7 @@ import {
   UploadCloud,
   LineChart
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.jsx';
 import emblem from '../../assets/emblem.jpg';
 
 const items = [
@@ -30,6 +31,11 @@ const items = [
 ];
 
 export default function StateSidebar() {
+  const { user } = useAuth();
+  const displayName = user?.fullName || 'State Admin';
+  const displayRole = user?.designation || 'State Finance Officer';
+  const profilePicture = user?.profilePicture || '';
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -58,15 +64,18 @@ export default function StateSidebar() {
         })}
       </div>
 
-      <div className="sidebar-footer">
-        <div className="avatar" />
+      <NavLink
+        to="/state/profile"
+        className={({ isActive }) =>
+          `sidebar-footer sidebar-profile-link${isActive ? ' active' : ''}`
+        }
+      >
+        <div className="avatar">{profilePicture ? <img src={profilePicture} alt={displayName} /> : null}</div>
         <div>
-          <strong>Shri Ajit Pawar</strong>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-            State Finance Officer
-          </div>
+          <strong>{displayName}</strong>
+          <div className="helper">{displayRole}</div>
         </div>
-      </div>
+      </NavLink>
     </aside>
   );
 }

@@ -23,6 +23,10 @@ const titles = {
   reports: {
     title: 'Audit Reports',
     subtitle: 'Generate parliament-ready reports'
+  },
+  profile: {
+    title: 'User Profile',
+    subtitle: 'Manage account details and profile picture'
   }
 };
 

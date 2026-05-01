@@ -45,7 +45,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('jn_token');
   };
 
-  const value = useMemo(() => ({ user, token, login, logout }), [user, token]);
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      const next = { ...(prev || {}), ...(patch || {}) };
+      try {
+        localStorage.setItem('jn_user', JSON.stringify(next));
+      } catch {
+        // Ignore storage write failures (quota/private mode).
+      }
+      return next;
+    });
+  };
+
+  const value = useMemo(() => ({ user, token, login, logout, updateUser }), [user, token]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

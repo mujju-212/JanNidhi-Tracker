@@ -13,6 +13,7 @@ import {
   WalletCards,
   FileText
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.jsx';
 import emblem from '../../assets/emblem.jpg';
 
 const items = [
@@ -34,6 +35,11 @@ const items = [
 ];
 
 export default function DistrictSidebar() {
+  const { user } = useAuth();
+  const displayName = user?.fullName || 'District Admin';
+  const displayRole = user?.designation || 'District Collector';
+  const profilePicture = user?.profilePicture || '';
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -62,15 +68,18 @@ export default function DistrictSidebar() {
         })}
       </div>
 
-      <div className="sidebar-footer">
-        <div className="avatar" />
+      <NavLink
+        to="/district/profile"
+        className={({ isActive }) =>
+          `sidebar-footer sidebar-profile-link${isActive ? ' active' : ''}`
+        }
+      >
+        <div className="avatar">{profilePicture ? <img src={profilePicture} alt={displayName} /> : null}</div>
         <div>
-          <strong>Shri Rajesh Patil</strong>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-            District Collector
-          </div>
+          <strong>{displayName}</strong>
+          <div className="helper">{displayRole}</div>
         </div>
-      </div>
+      </NavLink>
     </aside>
   );
 }

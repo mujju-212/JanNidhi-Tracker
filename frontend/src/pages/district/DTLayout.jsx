@@ -71,6 +71,10 @@ const titles = {
   'submit-uc': {
     title: 'Submit Utilization Certificate',
     subtitle: 'Share UC documents with the state'
+  },
+  profile: {
+    title: 'User Profile',
+    subtitle: 'Manage account details and profile picture'
   }
 };
 
