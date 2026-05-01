@@ -12,5 +12,8 @@ router.get('/district/all', controller.getAllDistricts);
 router.post('/funds/release', controller.releaseFundsToDistrict);
 router.get('/transactions', controller.getTransactions);
 router.get('/flags', controller.getFlags);
+router.post('/scheme/create', controller.createStateScheme);
+router.post('/uc/submit', controller.submitUC);
+router.post('/matching-fund/release', controller.releaseMatchingFund);
 
 module.exports = router;
