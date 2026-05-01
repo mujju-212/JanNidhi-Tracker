@@ -1,13 +1,40 @@
 import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function STCreateDistrict() {
-  const [district, setDistrict] = useState('Pune');
-  const [collector, setCollector] = useState('Shri Rajesh Patil');
-  const [email, setEmail] = useState('collector.pune@gov.in');
-  const [phone, setPhone] = useState('+91-98765-22222');
+  const [district, setDistrict] = useState('');
+  const [districtCode, setDistrictCode] = useState('');
+  const [collector, setCollector] = useState('');
+  const [designation, setDesignation] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const wallet = '0x7b9a...4421';
+  const createDistrict = async () => {
+    setLoading(true);
+    setError('');
+    setResult(null);
+    try {
+      const response = await apiPost('/api/state/district/create', {
+        district: district.trim(),
+        districtCode: districtCode.trim().toUpperCase(),
+        fullName: collector.trim(),
+        designation: designation.trim(),
+        employeeId: employeeId.trim(),
+        email: email.trim(),
+        phone: phone.trim()
+      });
+      setResult(response?.data || null);
+    } catch (err) {
+      setError(err.message || 'Unable to create district account.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
@@ -17,8 +44,20 @@ export default function STCreateDistrict() {
           <input value={district} onChange={(event) => setDistrict(event.target.value)} />
         </div>
         <div className="form-group">
+          <label>District Code</label>
+          <input value={districtCode} onChange={(event) => setDistrictCode(event.target.value)} />
+        </div>
+        <div className="form-group">
           <label>Collector Name</label>
           <input value={collector} onChange={(event) => setCollector(event.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Designation</label>
+          <input value={designation} onChange={(event) => setDesignation(event.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Govt Employee ID</label>
+          <input value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} />
         </div>
         <div className="form-group">
           <label>Official Email</label>
@@ -30,9 +69,12 @@ export default function STCreateDistrict() {
         </div>
         <div className="form-group">
           <label>Wallet Address (Auto-generated)</label>
-          <input value={wallet} readOnly />
+          <input value={result?.walletAddress || '-'} readOnly />
         </div>
-        <button className="btn">Create District Account</button>
+        <button className="btn" type="button" onClick={createDistrict} disabled={loading}>
+          {loading ? 'Creating...' : 'Create District Account'}
+        </button>
+        {error ? <div className="alert">{error}</div> : null}
       </Card>
 
       <Card title="Permissions Summary">

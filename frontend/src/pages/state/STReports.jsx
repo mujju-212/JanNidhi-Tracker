@@ -1,29 +1,65 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const reports = [
-  {
-    id: 'ST-RPT-2024-05',
-    name: 'District Release Summary',
-    period: 'Q1 2024',
-    status: 'ready',
-    generatedOn: '19 May 2024'
-  },
-  {
-    id: 'ST-RPT-2024-04',
-    name: 'Beneficiary Exceptions',
-    period: 'Last 30 Days',
-    status: 'processing',
-    generatedOn: '18 May 2024'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 const statusTone = (status) => (status === 'ready' ? 'low' : 'medium');
 
 export default function STReports() {
   const [reportType, setReportType] = useState('District Release');
-  const [period, setPeriod] = useState('FY 2024-25');
+  const [period, setPeriod] = useState(() => {
+    try {
+      return `FY ${localStorage.getItem('jn_selected_fy') || '2024-25'}`;
+    } catch {
+      return 'FY 2024-25';
+    }
+  });
+  const [transactions, setTransactions] = useState([]);
+  const [flags, setFlags] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    Promise.all([apiGet('/api/state/transactions'), apiGet('/api/state/flags')])
+      .then(([txResponse, flagResponse]) => {
+        if (!mounted) return;
+        setTransactions(txResponse?.data || []);
+        setFlags(flagResponse?.data || []);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load report data.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const reports = useMemo(() => {
+    const confirmed = transactions.filter((item) => item.status === 'confirmed');
+    const totalReleased = confirmed
+      .filter((item) => item.fromRole === 'state_admin')
+      .reduce((sum, item) => sum + Number(item.amountCrore || 0), 0);
+    const totalReceived = confirmed
+      .filter((item) => item.toRole === 'state_admin')
+      .reduce((sum, item) => sum + Number(item.amountCrore || 0), 0);
+
+    return [
+      {
+        id: `ST-RPT-${Date.now()}`,
+        name: `${reportType} Summary`,
+        period,
+        status: 'ready',
+        generatedOn: new Date().toLocaleDateString(),
+        detail: `Received: ${totalReceived.toFixed(2)} Cr, Released: ${totalReleased.toFixed(2)} Cr, Open Flags: ${flags.filter((item) => item.status !== 'resolved').length}`
+      }
+    ];
+  }, [transactions, flags, reportType, period]);
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
@@ -71,6 +107,16 @@ export default function STReports() {
             </tr>
           </thead>
           <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="6" className="helper">Generating report...</td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="6" className="helper">{error}</td>
+            </tr>
+          ) : null}
             {reports.map((report) => (
               <tr key={report.id}>
                 <td>{report.id}</td>
@@ -87,6 +133,11 @@ export default function STReports() {
                 </td>
               </tr>
             ))}
+          {!loading && !error && !reports.length ? (
+            <tr>
+              <td colSpan="6" className="helper">No reports available.</td>
+            </tr>
+          ) : null}
           </tbody>
         </table>
       </Card>

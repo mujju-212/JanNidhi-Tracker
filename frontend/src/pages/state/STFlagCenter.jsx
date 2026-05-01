@@ -1,12 +1,33 @@
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const flags = [
-  { id: 'FLAG-2024-MH-01', type: 'high', issue: 'Delayed release', status: 'open' },
-  { id: 'FLAG-2024-MH-02', type: 'medium', issue: 'UC pending', status: 'open' }
-];
+import { apiGet } from '../../services/api.js';
 
 export default function STFlagCenter() {
+  const [flags, setFlags] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/state/flags')
+      .then((response) => {
+        if (!mounted) return;
+        setFlags(response?.data || []);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load flags.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <Card title="State Flag Center">
       <table className="table">
@@ -19,16 +40,31 @@ export default function STFlagCenter() {
           </tr>
         </thead>
         <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="4" className="helper">Loading flags...</td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="4" className="helper">{error}</td>
+            </tr>
+          ) : null}
           {flags.map((flag) => (
-            <tr key={flag.id}>
-              <td>{flag.id}</td>
+            <tr key={flag._id}>
+              <td>{flag.flagId || flag._id}</td>
               <td>
-                <Badge tone={flag.type} label={flag.type.toUpperCase()} />
+                <Badge tone={flag.flagType} label={String(flag.flagType || '-').toUpperCase()} />
               </td>
-              <td>{flag.issue}</td>
-              <td>{flag.status}</td>
+              <td>{flag.flagReason || '-'}</td>
+              <td>{flag.status || '-'}</td>
             </tr>
           ))}
+          {!loading && !error && !flags.length ? (
+            <tr>
+              <td colSpan="4" className="helper">No flags found.</td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </Card>
