@@ -56,7 +56,13 @@ const flagSchema = new mongoose.Schema(
     },
     escalationTarget: {
       type: String,
-      enum: ['finance_ministry', 'ministry_of_law', 'cbi_ed'],
+      validate: {
+        validator: function (v) {
+          if (v === null || v === undefined) return true;
+          return ['finance_ministry', 'ministry_of_law', 'cbi_ed'].includes(v);
+        },
+        message: '{VALUE} is not a valid escalation target'
+      },
       default: null
     },
     flagBlockchainTxHash: { type: String, default: null },

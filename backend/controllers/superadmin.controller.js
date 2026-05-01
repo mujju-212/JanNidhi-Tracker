@@ -1,10 +1,32 @@
 const User = require('../models/User.model');
 const Transaction = require('../models/Transaction.model');
 const Flag = require('../models/Flag.model');
+const Scheme = require('../models/Scheme.model');
+const PlatformSettings = require('../models/PlatformSettings.model');
 const { generateWallet } = require('../utils/generateWallet');
 const blockchainService = require('../services/blockchain.service');
 const { emitToAuditors } = require('../config/socket');
 const { success, error } = require('../utils/apiResponse');
+
+const DEFAULT_SUPERADMIN_SETTINGS = {
+  sessionTimeoutMinutes: 30,
+  multiSigApprovalsEnabled: true,
+  autoLockOnAnomalyEnabled: true,
+  releaseDelayThresholdDays: 30,
+  utilizationAlertPercent: 65,
+  duplicateBeneficiaryLimit: 3,
+  escalateCriticalTo: 'CAG Central',
+  digestTime: '09:00 AM',
+  emergencyEmail: 'monitoring@finmin.gov.in'
+};
+
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms)
+    )
+  ]);
 
 const getTotal = async (match) => {
   const result = await Transaction.aggregate([
@@ -60,12 +82,30 @@ exports.createMinistry = async (req, res, next) => {
     const wallet = generateWallet();
     const tempPassword = `Ministry@${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const bcResult = await blockchainService.registerMinistry(
-      wallet.address,
-      ministryName,
-      ministryCode,
-      Number(budgetCapCrore || 0)
-    );
+    let bcResult = { txHash: null, blockNumber: null, skipped: true };
+    let blockchainStatus = 'skipped';
+    let blockchainNote = 'Blockchain registration skipped.';
+
+    try {
+      bcResult = await withTimeout(
+        blockchainService.registerMinistry(
+          wallet.address,
+          ministryName,
+          ministryCode,
+          Number(budgetCapCrore || 0)
+        ),
+        45000
+      );
+      blockchainStatus = bcResult?.skipped ? 'already_registered' : 'confirmed';
+      blockchainNote = bcResult?.skipped
+        ? 'Ministry already registered on blockchain.'
+        : 'Ministry registered on blockchain.';
+    } catch (chainErr) {
+      blockchainStatus = 'pending';
+      blockchainNote = `Blockchain registration pending: ${chainErr.message}`;
+      // Keep ministry creation resilient even if chain is slow/unavailable.
+      console.warn('[createMinistry] blockchain register failed:', chainErr.message);
+    }
 
     const user = await User.create({
       fullName: hodName || ministryName,
@@ -91,6 +131,8 @@ exports.createMinistry = async (req, res, next) => {
       walletPrivateKey: wallet.privateKey,
       walletMnemonic: wallet.mnemonic,
       blockchainTx: bcResult,
+      blockchainStatus,
+      blockchainNote,
       tempPassword
     });
   } catch (err) {
@@ -135,32 +177,34 @@ exports.allocateBudget = async (req, res, next) => {
       totalAmountCrore,
       financialYear,
       quarter,
-      sanctionDocHash
+      sanctionDocHash,
+      blockchainTxHash: frontendTxHash,
+      blockNumber: frontendBlockNumber
     } = req.body;
 
     const ministry = await User.findOne({ 'jurisdiction.ministryCode': ministryCode });
     if (!ministry) return error(res, 'Ministry not found', 404);
 
+    const walletAddr = ministryWalletAddress || ministry.walletAddress;
     const transactionId = `TXN-${financialYear}-${ministryCode}-${Date.now()}`;
 
-    const bcResult = await blockchainService.allocateBudget(
-      ministryWalletAddress,
-      totalAmountCrore,
-      transactionId,
-      sanctionDocHash || ''
-    );
+    // If frontend already signed via MetaMask, use that hash directly
+    const txHash = frontendTxHash || 'PENDING';
+    const blockNum = frontendBlockNumber || null;
+    const status = frontendTxHash ? 'confirmed' : 'pending';
 
     const tx = await Transaction.create({
       transactionId,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber,
+      blockchainTxHash: txHash,
+      blockNumber: blockNum,
       fromRole: 'super_admin',
+      fromWalletAddress: req.user?.walletAddress || null,
       fromName: 'Finance Ministry of India',
       fromCode: 'FIN_MIN',
       toRole: 'ministry_admin',
       toName: ministry.jurisdiction.ministry,
       toCode: ministryCode,
-      toWalletAddress: ministryWalletAddress,
+      toWalletAddress: walletAddr,
       amountCrore: totalAmountCrore,
       schemeId: 'BUDGET_ALLOCATION',
       schemeName: `Budget Allocation ${financialYear}`,
@@ -168,7 +212,7 @@ exports.allocateBudget = async (req, res, next) => {
       quarter,
       ministryCode,
       sanctionDocHash,
-      status: 'confirmed',
+      status,
       validations: {
         amountCheck: true,
         walletCheck: true,
@@ -186,13 +230,16 @@ exports.allocateBudget = async (req, res, next) => {
 
     return success(res, 'Budget allocated', {
       transactionId,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber
+      blockchainTxHash: txHash,
+      blockNumber: blockNum,
+      status
     });
   } catch (err) {
     next(err);
   }
 };
+
+
 
 exports.getBudgetHistory = async (req, res, next) => {
   try {
@@ -265,6 +312,92 @@ exports.getAllFlags = async (req, res, next) => {
   try {
     const flags = await Flag.find().sort({ createdAt: -1 }).limit(500);
     return success(res, 'Flags loaded', flags);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getManagedUsers = async (req, res, next) => {
+  try {
+    const users = await User.find({
+      role: { $in: ['ministry_admin', 'central_cag', 'state_auditor'] }
+    })
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .limit(500);
+
+    return success(res, 'Users loaded', users);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getAllSchemes = async (req, res, next) => {
+  try {
+    const schemes = await Scheme.find().sort({ createdAt: -1 }).limit(500);
+    const transactions = await Transaction.find({
+      schemeId: { $nin: ['BUDGET_ALLOCATION'] }
+    })
+      .select('schemeId amountCrore fromRole status')
+      .limit(5000);
+
+    const releasedMap = new Map();
+    transactions.forEach((tx) => {
+      if (tx.status !== 'confirmed') return;
+      if (!['ministry_admin', 'state_admin', 'district_admin'].includes(tx.fromRole)) return;
+      releasedMap.set(tx.schemeId, (releasedMap.get(tx.schemeId) || 0) + Number(tx.amountCrore || 0));
+    });
+
+    const payload = schemes.map((scheme) => ({
+      schemeId: scheme.schemeId,
+      schemeName: scheme.schemeName,
+      ownerMinistryCode: scheme.ownerMinistryCode,
+      ownerMinistryName: scheme.ownerMinistryName,
+      schemeType: scheme.schemeType,
+      totalBudgetCrore: scheme.totalBudgetCrore,
+      releasedCrore: Number((releasedMap.get(scheme.schemeId) || 0).toFixed(2)),
+      utilizationPercent:
+        scheme.totalBudgetCrore > 0
+          ? Math.min(
+              100,
+              Number((((releasedMap.get(scheme.schemeId) || 0) / scheme.totalBudgetCrore) * 100).toFixed(2))
+            )
+          : 0,
+      status: scheme.status,
+      createdAt: scheme.createdAt
+    }));
+
+    return success(res, 'Schemes loaded', payload);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSystemSettings = async (req, res, next) => {
+  try {
+    const doc = await PlatformSettings.findOne({ key: 'superadmin' });
+    const payload = { ...DEFAULT_SUPERADMIN_SETTINGS, ...(doc?.payload || {}) };
+    return success(res, 'Settings loaded', payload);
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateSystemSettings = async (req, res, next) => {
+  try {
+    const payload = req.body || {};
+    const nextPayload = {
+      ...DEFAULT_SUPERADMIN_SETTINGS,
+      ...payload
+    };
+
+    const doc = await PlatformSettings.findOneAndUpdate(
+      { key: 'superadmin' },
+      { payload: nextPayload, updatedBy: req.user._id },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    return success(res, 'Settings updated', doc.payload);
   } catch (err) {
     next(err);
   }

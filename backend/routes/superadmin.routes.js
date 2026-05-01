@@ -14,5 +14,9 @@ router.get('/budget/history', controller.getBudgetHistory);
 router.post('/cag/create', controller.createCAGAccount);
 router.get('/transactions', controller.getAllTransactions);
 router.get('/flags', controller.getAllFlags);
+router.get('/users', controller.getManagedUsers);
+router.get('/schemes', controller.getAllSchemes);
+router.get('/settings', controller.getSystemSettings);
+router.put('/settings', controller.updateSystemSettings);
 
 module.exports = router;
