@@ -1,17 +1,45 @@
 const { getContracts } = require('../config/blockchain');
 
+// Check if a ministry wallet is registered on-chain
+exports.isMinistryRegistered = async (walletAddress) => {
+  const { fundManagerContract } = getContracts();
+  return fundManagerContract.registeredMinistries(walletAddress);
+};
+
+// Register ministry on-chain (only if not already registered)
 exports.registerMinistry = async (walletAddress, name, code, budgetCap) => {
   const { fundManagerContract } = getContracts();
-  const tx = await fundManagerContract.registerMinistry(walletAddress, name, code, budgetCap);
+  const alreadyRegistered = await fundManagerContract.registeredMinistries(walletAddress);
+  if (alreadyRegistered) {
+    console.log(`Ministry ${walletAddress} already registered on-chain, skipping`);
+    return { txHash: null, blockNumber: null, skipped: true };
+  }
+  const tx = await fundManagerContract.registerMinistry(walletAddress, name, code, BigInt(budgetCap));
   const receipt = await tx.wait();
   return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
 };
 
-exports.allocateBudget = async (ministryWallet, amountCrore, transactionId, docHash) => {
+// Allocate budget — auto-registers ministry first if not registered
+exports.allocateBudget = async (ministryWallet, amountCrore, transactionId, docHash, ministryName, ministryCode, budgetCap) => {
   const { fundManagerContract } = getContracts();
+
+  // Auto-register if needed (prevents "Ministry not registered" revert)
+  const alreadyRegistered = await fundManagerContract.registeredMinistries(ministryWallet);
+  if (!alreadyRegistered) {
+    console.log(`Auto-registering ministry ${ministryWallet} on Sepolia...`);
+    const regTx = await fundManagerContract.registerMinistry(
+      ministryWallet,
+      ministryName || 'Unknown Ministry',
+      ministryCode || 'UNKNOWN',
+      BigInt(budgetCap || 99999)
+    );
+    await regTx.wait();
+    console.log(`Ministry registered: ${ministryWallet}`);
+  }
+
   const tx = await fundManagerContract.allocateBudget(
     ministryWallet,
-    amountCrore,
+    BigInt(amountCrore),
     transactionId,
     docHash || ''
   );
@@ -23,7 +51,7 @@ exports.releaseFunds = async (toWallet, amountCrore, transactionId, schemeId, do
   const { fundManagerContract } = getContracts();
   const tx = await fundManagerContract.releaseFunds(
     toWallet,
-    amountCrore,
+    BigInt(amountCrore),
     transactionId,
     schemeId,
     docHash || ''
@@ -38,7 +66,7 @@ exports.createScheme = async (schemeId, schemeName, ministryCode, budgetCrore, s
     schemeId,
     schemeName,
     ministryCode,
-    budgetCrore,
+    BigInt(budgetCrore),
     Math.floor(new Date(startDate).getTime() / 1000),
     Math.floor(new Date(endDate).getTime() / 1000)
   );
@@ -55,7 +83,7 @@ exports.enrollBeneficiary = async (aadhaarHash, schemeId) => {
 
 exports.recordPayment = async (paymentId, aadhaarHash, schemeId, amount) => {
   const { auditLoggerContract } = getContracts();
-  const tx = await auditLoggerContract.recordPayment(paymentId, aadhaarHash, schemeId, amount);
+  const tx = await auditLoggerContract.recordPayment(paymentId, aadhaarHash, schemeId, BigInt(amount));
   const receipt = await tx.wait();
   return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
 };

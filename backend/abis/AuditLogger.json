@@ -1,0 +1,164 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "aadhaarHash", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "schemeId", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ],
+    "name": "BeneficiaryEnrolled",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_aadhaarHash", "type": "string" },
+      { "internalType": "string", "name": "_schemeId", "type": "string" }
+    ],
+    "name": "enrollBeneficiary",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "flagId", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "transactionId", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "flagCode", "type": "string" },
+      { "indexed": false, "internalType": "address", "name": "raisedBy", "type": "address" }
+    ],
+    "name": "FlagRaised",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "flagId", "type": "string" },
+      { "indexed": false, "internalType": "address", "name": "resolvedBy", "type": "address" }
+    ],
+    "name": "FlagResolved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "paymentId", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "aadhaarHash", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "schemeId", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "PaymentRecorded",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_flagId", "type": "string" },
+      { "internalType": "string", "name": "_transactionId", "type": "string" },
+      { "internalType": "string", "name": "_flagCode", "type": "string" },
+      { "internalType": "string", "name": "_flagReason", "type": "string" }
+    ],
+    "name": "raiseFlag",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_paymentId", "type": "string" },
+      { "internalType": "string", "name": "_aadhaarHash", "type": "string" },
+      { "internalType": "string", "name": "_schemeId", "type": "string" },
+      { "internalType": "uint256", "name": "_amount", "type": "uint256" }
+    ],
+    "name": "recordPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "_flagId", "type": "string" }],
+    "name": "resolveFlag",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "name": "enrollments",
+    "outputs": [
+      { "internalType": "string", "name": "aadhaarHash", "type": "string" },
+      { "internalType": "string", "name": "schemeId", "type": "string" },
+      { "internalType": "uint256", "name": "enrolledAt", "type": "uint256" },
+      { "internalType": "address", "name": "enrolledBy", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "flagIds",
+    "outputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "name": "flags",
+    "outputs": [
+      { "internalType": "string", "name": "flagId", "type": "string" },
+      { "internalType": "string", "name": "transactionId", "type": "string" },
+      { "internalType": "string", "name": "flagCode", "type": "string" },
+      { "internalType": "string", "name": "flagReason", "type": "string" },
+      { "internalType": "address", "name": "raisedBy", "type": "address" },
+      { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+      { "internalType": "bool", "name": "isResolved", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "_flagId", "type": "string" }],
+    "name": "getFlag",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "string", "name": "flagId", "type": "string" },
+          { "internalType": "string", "name": "transactionId", "type": "string" },
+          { "internalType": "string", "name": "flagCode", "type": "string" },
+          { "internalType": "string", "name": "flagReason", "type": "string" },
+          { "internalType": "address", "name": "raisedBy", "type": "address" },
+          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          { "internalType": "bool", "name": "isResolved", "type": "bool" }
+        ],
+        "internalType": "struct AuditLogger.AuditFlag",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_aadhaarHash", "type": "string" },
+      { "internalType": "string", "name": "_schemeId", "type": "string" }
+    ],
+    "name": "isEnrolled",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "name": "payments",
+    "outputs": [
+      { "internalType": "string", "name": "paymentId", "type": "string" },
+      { "internalType": "string", "name": "aadhaarHash", "type": "string" },
+      { "internalType": "string", "name": "schemeId", "type": "string" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "uint256", "name": "paidAt", "type": "uint256" },
+      { "internalType": "address", "name": "paidBy", "type": "address" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

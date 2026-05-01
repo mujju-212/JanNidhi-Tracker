@@ -1,37 +1,63 @@
 const { ethers } = require('ethers');
-const FundManagerABI = require('../abis/FundManager.json');
-const SchemeRegistryABI = require('../abis/SchemeRegistry.json');
-const AuditLoggerABI = require('../abis/AuditLogger.json');
+const path = require('path');
+const fs = require('fs');
 
 let provider;
 let signer;
 let fundManagerContract;
 let schemeRegistryContract;
 let auditLoggerContract;
+let blockchainReady = false;
 
-const requireEnv = (key) => {
-  if (!process.env[key]) {
-    throw new Error(`${key} is not set`);
+// Safe ABI loader — returns empty array if file not found yet
+const loadABI = (filename) => {
+  const filePath = path.join(__dirname, '../abis', filename);
+  if (!fs.existsSync(filePath)) {
+    console.warn(`⚠️  ABI not found: ${filename} — deploy contracts first`);
+    return [];
   }
-  return process.env[key];
+  return require(filePath);
 };
 
 const initializeBlockchain = async () => {
-  const rpcUrl = requireEnv('BLOCKCHAIN_RPC_URL');
-  const privateKey = requireEnv('PRIVATE_KEY');
-  const fundManagerAddress = requireEnv('FUND_MANAGER_CONTRACT');
-  const schemeRegistryAddress = requireEnv('SCHEME_REGISTRY_CONTRACT');
-  const auditLoggerAddress = requireEnv('AUDIT_LOGGER_CONTRACT');
+  try {
+    const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
+    const privateKey = process.env.PRIVATE_KEY;
+    const fundManagerAddress = process.env.FUND_MANAGER_CONTRACT;
+    const schemeRegistryAddress = process.env.SCHEME_REGISTRY_CONTRACT;
+    const auditLoggerAddress = process.env.AUDIT_LOGGER_CONTRACT;
 
-  provider = new ethers.JsonRpcProvider(rpcUrl);
-  signer = new ethers.Wallet(privateKey, provider);
+    // Skip if placeholder values still in .env
+    if (!privateKey || privateKey.includes('YourHardhat') || privateKey.includes('YourAddress')) {
+      console.warn('⚠️  Blockchain: Contract addresses not set in .env — skipping blockchain init');
+      console.warn('   → Deploy contracts on Remix, then update FUND_MANAGER_CONTRACT etc. in .env');
+      return;
+    }
 
-  fundManagerContract = new ethers.Contract(fundManagerAddress, FundManagerABI, signer);
-  schemeRegistryContract = new ethers.Contract(schemeRegistryAddress, SchemeRegistryABI, signer);
-  auditLoggerContract = new ethers.Contract(auditLoggerAddress, AuditLoggerABI, signer);
+    const FundManagerABI    = loadABI('FundManager.json');
+    const SchemeRegistryABI = loadABI('SchemeRegistry.json');
+    const AuditLoggerABI    = loadABI('AuditLogger.json');
 
-  const network = await provider.getNetwork();
-  console.log(`Blockchain connected on chain ${network.chainId}`);
+    if (!FundManagerABI.length || !SchemeRegistryABI.length || !AuditLoggerABI.length) {
+      console.warn('⚠️  Blockchain: ABI files missing — paste ABIs from Remix into backend/abis/');
+      return;
+    }
+
+    provider = new ethers.JsonRpcProvider(rpcUrl);
+    signer   = new ethers.Wallet(privateKey, provider);
+
+    fundManagerContract    = new ethers.Contract(fundManagerAddress,    FundManagerABI,    signer);
+    schemeRegistryContract = new ethers.Contract(schemeRegistryAddress, SchemeRegistryABI, signer);
+    auditLoggerContract    = new ethers.Contract(auditLoggerAddress,    AuditLoggerABI,    signer);
+
+    const network = await provider.getNetwork();
+    blockchainReady = true;
+    console.log(`✅ Blockchain connected — Chain ID: ${network.chainId} (Sepolia=11155111)`);
+
+  } catch (err) {
+    console.warn(`⚠️  Blockchain init failed: ${err.message}`);
+    console.warn('   → Server will run without blockchain until contracts are deployed');
+  }
 };
 
 const getContracts = () => ({
@@ -39,7 +65,8 @@ const getContracts = () => ({
   schemeRegistryContract,
   auditLoggerContract,
   provider,
-  signer
+  signer,
+  blockchainReady
 });
 
 module.exports = { initializeBlockchain, getContracts };

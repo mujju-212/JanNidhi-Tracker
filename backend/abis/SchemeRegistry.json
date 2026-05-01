@@ -1,0 +1,108 @@
+[
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_schemeId", "type": "string" },
+      { "internalType": "string", "name": "_schemeName", "type": "string" },
+      { "internalType": "string", "name": "_ministryCode", "type": "string" },
+      { "internalType": "uint256", "name": "_totalBudgetCrore", "type": "uint256" },
+      { "internalType": "uint256", "name": "_startDate", "type": "uint256" },
+      { "internalType": "uint256", "name": "_endDate", "type": "uint256" }
+    ],
+    "name": "createScheme",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "_schemeId", "type": "string" }],
+    "name": "deactivateScheme",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "schemeId", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "schemeName", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "ministryCode", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "budget", "type": "uint256" }
+    ],
+    "name": "SchemeCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "string", "name": "schemeId", "type": "string" },
+      { "indexed": false, "internalType": "bool", "name": "isActive", "type": "bool" }
+    ],
+    "name": "SchemeStatusChanged",
+    "type": "event"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "_schemeId", "type": "string" }],
+    "name": "getScheme",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "string", "name": "schemeId", "type": "string" },
+          { "internalType": "string", "name": "schemeName", "type": "string" },
+          { "internalType": "string", "name": "ministryCode", "type": "string" },
+          { "internalType": "uint256", "name": "totalBudgetCrore", "type": "uint256" },
+          { "internalType": "uint256", "name": "startDate", "type": "uint256" },
+          { "internalType": "uint256", "name": "endDate", "type": "uint256" },
+          { "internalType": "bool", "name": "isActive", "type": "bool" },
+          { "internalType": "uint256", "name": "createdAt", "type": "uint256" }
+        ],
+        "internalType": "struct SchemeRegistry.Scheme",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "_schemeId", "type": "string" }],
+    "name": "isSchemeActive",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "schemeIds",
+    "outputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "name": "schemes",
+    "outputs": [
+      { "internalType": "string", "name": "schemeId", "type": "string" },
+      { "internalType": "string", "name": "schemeName", "type": "string" },
+      { "internalType": "string", "name": "ministryCode", "type": "string" },
+      { "internalType": "uint256", "name": "totalBudgetCrore", "type": "uint256" },
+      { "internalType": "uint256", "name": "startDate", "type": "uint256" },
+      { "internalType": "uint256", "name": "endDate", "type": "uint256" },
+      { "internalType": "bool", "name": "isActive", "type": "bool" },
+      { "internalType": "uint256", "name": "createdAt", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "superAdmin",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
