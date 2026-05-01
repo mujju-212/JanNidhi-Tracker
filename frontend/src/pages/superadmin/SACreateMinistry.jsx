@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 const ministryOptions = [
   'Ministry of Health & Family Welfare',
@@ -28,15 +29,48 @@ export default function SACreateMinistry() {
   const [phone, setPhone] = useState('+91-XXXXXXXXXX');
   const [employeeId, setEmployeeId] = useState('IAS-2024-XXXX');
   const [budgetCap, setBudgetCap] = useState('89155');
-  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+  const [step, setStep] = useState('');
 
   const ministryCode = useMemo(() => {
     return `${toCode(ministryName)}-2024`;
   }, [ministryName]);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setSubmitted(true);
+    setError('');
+    setResult(null);
+    setStep('');
+
+    if (!ministryName || !hod || !email || !employeeId) {
+      setError('Please fill all required fields.');
+      return;
+    }
+
+    setLoading(true);
+    setStep('Validating details...');
+    try {
+      setStep('Creating ministry account...');
+      const response = await apiPost('/api/superadmin/ministry/create', {
+        ministryName,
+        ministryCode,
+        hodName: hod,
+        designation,
+        email,
+        phone,
+        employeeId,
+        budgetCapCrore: Number(budgetCap || 0)
+      });
+      setResult(response?.data || {});
+      setStep('');
+    } catch (err) {
+      setError(err.message || 'Unable to create ministry account.');
+      setStep('');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -109,14 +143,23 @@ export default function SACreateMinistry() {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-            <button className="btn" type="submit">
-              Create Account & Send Credentials
+            <button className="btn" type="submit" disabled={loading}>
+              {loading ? 'Creating...' : 'Create Account & Send Credentials'}
             </button>
-            <button className="btn secondary" type="button">
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={() => {
+                setError('');
+                setResult(null);
+              }}
+            >
               Reset
             </button>
           </div>
         </form>
+        {loading && step ? <div className="helper" style={{ marginTop: '12px' }}>{step}</div> : null}
+        {error ? <div className="alert" style={{ marginTop: '12px' }}>{error}</div> : null}
       </Card>
 
       <Card title="Block Preview">
@@ -129,12 +172,16 @@ export default function SACreateMinistry() {
         </div>
       </Card>
 
-      {submitted ? (
+      {result ? (
         <Card title="Success">
           <div className="helper" style={{ display: 'grid', gap: '8px' }}>
             <div>Ministry account created successfully.</div>
-            <div>Block Hash: 0xa3f9c2e8b4d7... (copyable)</div>
-            <div>Temporary password sent to: {email}</div>
+            <div>Wallet Address: {result.walletAddress || '-'}</div>
+            <div>Blockchain Tx Hash: {result.blockchainTx?.txHash || '-'}</div>
+            <div>Block Number: {result.blockchainTx?.blockNumber ?? '-'}</div>
+            <div>Blockchain Status: {result.blockchainStatus || '-'}</div>
+            <div>{result.blockchainNote || '-'}</div>
+            <div>Temporary password: {result.tempPassword || '-'}</div>
           </div>
         </Card>
       ) : null}

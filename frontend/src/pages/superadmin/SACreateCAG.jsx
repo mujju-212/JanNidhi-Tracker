@@ -1,15 +1,48 @@
 import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function SACreateCAG() {
   const [name, setName] = useState('Shri G. K. Pillai');
   const [officerId, setOfficerId] = useState('CAG-2024-009');
-  const [role, setRole] = useState('Central CAG');
+  const [role, setRole] = useState('central_cag');
   const [jurisdiction, setJurisdiction] = useState('All India');
   const [email, setEmail] = useState('cag.office@gov.in');
   const [phone, setPhone] = useState('+91-98765-43210');
+  const [designation, setDesignation] = useState('Auditor');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
 
-  const wallet = '0x8d3a...9c44';
+  const handleSubmit = async () => {
+    setError('');
+    setResult(null);
+    if (!name || !officerId || !email) {
+      setError('Please fill required fields.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await apiPost('/api/superadmin/cag/create', {
+        fullName: name,
+        email,
+        phone,
+        employeeId: officerId,
+        role,
+        jurisdiction:
+          role === 'state_auditor' && jurisdiction !== 'All India'
+            ? { state: jurisdiction, stateCode: jurisdiction.toUpperCase().slice(0, 3) }
+            : {},
+        designation
+      });
+      setResult(response?.data || null);
+    } catch (err) {
+      setError(err.message || 'Unable to create CAG account.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
@@ -25,8 +58,8 @@ export default function SACreateCAG() {
         <div className="form-group">
           <label>Role</label>
           <select value={role} onChange={(event) => setRole(event.target.value)}>
-            <option>Central CAG</option>
-            <option>State Auditor</option>
+            <option value="central_cag">Central CAG</option>
+            <option value="state_auditor">State Auditor</option>
           </select>
         </div>
         <div className="form-group">
@@ -40,6 +73,10 @@ export default function SACreateCAG() {
           </select>
         </div>
         <div className="form-group">
+          <label>Designation</label>
+          <input value={designation} onChange={(event) => setDesignation(event.target.value)} />
+        </div>
+        <div className="form-group">
           <label>Official Email</label>
           <input value={email} onChange={(event) => setEmail(event.target.value)} />
         </div>
@@ -49,18 +86,30 @@ export default function SACreateCAG() {
         </div>
         <div className="form-group">
           <label>Wallet Address (Auto-generated)</label>
-          <input value={wallet} readOnly />
+          <input value={result?.walletAddress || ''} readOnly />
         </div>
-        <button className="btn">Create Account & Send Credentials</button>
+        {error ? <div className="alert">{error}</div> : null}
+        <button className="btn" type="button" onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Creating...' : 'Create Account & Send Credentials'}
+        </button>
       </Card>
 
-      <Card title="Permissions Summary">
+      <Card title={result ? 'Account Created' : 'Permissions Summary'}>
         <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-          <div>Read-only access to all ministries and state ledgers.</div>
-          <div>Can raise audit flags and request clarifications.</div>
-          <div>Cannot modify or delete any transaction data.</div>
-          <div>Receives real-time alerts for critical anomalies.</div>
-          <div>Access token expires in 30 days unless renewed.</div>
+          {result ? (
+            <>
+              <div>Auditor account created successfully.</div>
+              <div>Wallet: {result.walletAddress || '-'}</div>
+              <div>Temporary password: {result.tempPassword || '-'}</div>
+            </>
+          ) : (
+            <>
+              <div>Read-only access to all ministries and state ledgers.</div>
+              <div>Can raise audit flags and request clarifications.</div>
+              <div>Cannot modify or delete any transaction data.</div>
+              <div>Receives real-time alerts for critical anomalies.</div>
+            </>
+          )}
         </div>
       </Card>
     </div>

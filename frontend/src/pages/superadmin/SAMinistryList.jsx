@@ -49,7 +49,7 @@ export default function SAMinistryList() {
     return ministries.filter((ministry) =>
       ministry.name.toLowerCase().includes(term)
     );
-  }, [query]);
+  }, [query, ministries]);
 
   return (
     <Card
@@ -69,6 +69,7 @@ export default function SAMinistryList() {
         />
       </div>
 
+      <div className="table-wrap">
       <table className="table">
         <thead>
           <tr>
@@ -97,10 +98,10 @@ export default function SAMinistryList() {
             </tr>
           ) : null}
           {filtered.map((item) => (
-            <tr key={item.name}>
+            <tr key={item.id}>
               <td>{item.name}</td>
               <td>{item.hod}</td>
-              <td>{item.wallet}</td>
+              <td className="wallet-cell">{item.wallet}</td>
               <td>Rs {item.budgetCap}</td>
               <td>{item.used === null ? '-' : `Rs ${item.used}`}</td>
               <td>
@@ -116,8 +117,14 @@ export default function SAMinistryList() {
               </td>
             </tr>
           ))}
+          {!loading && !error && !filtered.length ? (
+            <tr>
+              <td colSpan="7" className="helper">No ministries found.</td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
+      </div>
     </Card>
   );
 }
