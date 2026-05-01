@@ -53,7 +53,18 @@ const start = async () => {
 
     const port = process.env.PORT || 5000;
     httpServer.listen(port, () => {
-      console.log(`Server running on port ${port}`);
+      console.log(`✅ Server running on port ${port}`);
+    });
+
+    httpServer.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`\n⚠️ Port ${port} is already in use.`);
+        console.warn(`   → Backend appears to be already running on this port.`);
+        console.warn(`   → Exiting this duplicate start request safely.\n`);
+        process.exit(0);
+      } else {
+        throw err;
+      }
     });
   } catch (error) {
     console.error('Server startup failed:', error.message);
@@ -62,3 +73,4 @@ const start = async () => {
 };
 
 start();
+

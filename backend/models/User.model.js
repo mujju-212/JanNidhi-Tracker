@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
     employeeId: { type: String, required: true, unique: true },
     phone: { type: String, required: true },
     designation: { type: String, required: true },
+    profilePicture: { type: String, default: null },
     role: {
       type: String,
       enum: [

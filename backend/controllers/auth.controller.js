@@ -11,6 +11,20 @@ const signToken = (user) => {
   );
 };
 
+const toUserPayload = (user) => ({
+  id: user._id,
+  fullName: user.fullName,
+  email: user.email,
+  phone: user.phone,
+  designation: user.designation,
+  employeeId: user.employeeId,
+  role: user.role,
+  jurisdiction: user.jurisdiction,
+  walletAddress: user.walletAddress,
+  profilePicture: user.profilePicture || null,
+  isFirstLogin: !!user.isFirstLogin
+});
+
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -79,14 +93,7 @@ exports.verifyOTP = async (req, res, next) => {
     return success(res, 'OTP verified', {
       token,
       role: user.role,
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-        jurisdiction: user.jurisdiction,
-        walletAddress: user.walletAddress
-      }
+      user: toUserPayload(user)
     });
   } catch (err) {
     next(err);
@@ -95,7 +102,39 @@ exports.verifyOTP = async (req, res, next) => {
 
 exports.getMe = async (req, res, next) => {
   try {
-    return success(res, 'Profile loaded', { user: req.user });
+    return success(res, 'Profile loaded', { user: toUserPayload(req.user) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { fullName, designation, profilePicture } = req.body || {};
+    const updates = {};
+
+    if (typeof fullName === 'string') updates.fullName = fullName.trim();
+    if (typeof designation === 'string') updates.designation = designation.trim();
+    if (profilePicture === null) {
+      updates.profilePicture = null;
+    } else if (typeof profilePicture === 'string') {
+      // Keep profile payload bounded to avoid oversized documents.
+      if (profilePicture.length > 2_000_000) {
+        return error(res, 'Profile image too large. Please use a smaller image.', 400);
+      }
+      updates.profilePicture = profilePicture;
+    }
+
+    if (!Object.keys(updates).length) {
+      return error(res, 'No profile changes provided', 400);
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+      runValidators: true
+    }).select('-password');
+
+    return success(res, 'Profile updated', { user: toUserPayload(user) });
   } catch (err) {
     next(err);
   }
