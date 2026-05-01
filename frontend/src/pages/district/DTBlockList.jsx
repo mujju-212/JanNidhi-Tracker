@@ -1,40 +1,53 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const blocks = [
-  {
-    name: 'Haveli',
-    officer: 'Shri Suresh Kale',
-    wallet: '0x3f9a...11c9',
-    utilization: 64,
-    status: 'active'
-  },
-  {
-    name: 'Mulshi',
-    officer: 'Smt. Kavita Patil',
-    wallet: '0x1b5c...0a21',
-    utilization: 51,
-    status: 'active'
-  },
-  {
-    name: 'Purandar',
-    officer: 'Shri Vivek Rao',
-    wallet: '0x9a1f...77d3',
-    utilization: 39,
-    status: 'watch'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 const statusTone = (status) => (status === 'active' ? 'low' : 'medium');
 
 export default function DTBlockList() {
+  const [taluks, setTaluks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/district/taluk/all')
+      .then((response) => {
+        if (!mounted) return;
+        const items = response?.data || [];
+        const mapped = items.map((item) => ({
+          name: item.name,
+          officer: item.officerName,
+          wallet: item.walletAddress || '-',
+          utilization: 0,
+          status: item.status || 'active'
+        }));
+        setTaluks(mapped);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load taluks.');
+        setTaluks([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <Card
-      title="Block Accounts"
+      title="Taluk Accounts"
       action={
         <Link className="btn" to="/district/create-block">
-          Create Block
+          Create Taluk
         </Link>
       }
     >
@@ -49,21 +62,35 @@ export default function DTBlockList() {
           </tr>
         </thead>
         <tbody>
-          {blocks.map((block) => (
-            <tr key={block.name}>
-              <td>{block.name}</td>
-              <td>{block.officer}</td>
-              <td>{block.wallet}</td>
+          {loading ? (
+            <tr>
+              <td colSpan="5" className="helper">
+                Loading taluks...
+              </td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="5" className="helper">
+                {error}
+              </td>
+            </tr>
+          ) : null}
+          {taluks.map((taluk) => (
+            <tr key={taluk.name}>
+              <td>{taluk.name}</td>
+              <td>{taluk.officer}</td>
+              <td>{taluk.wallet}</td>
               <td>
                 <div className="progress-bar-bg">
                   <div
                     className="progress-bar-fill"
-                    style={{ width: `${block.utilization}%` }}
+                    style={{ width: `${taluk.utilization}%` }}
                   />
                 </div>
               </td>
               <td>
-                <Badge tone={statusTone(block.status)} label={block.status.toUpperCase()} />
+                <Badge tone={statusTone(taluk.status)} label={taluk.status.toUpperCase()} />
               </td>
             </tr>
           ))}
