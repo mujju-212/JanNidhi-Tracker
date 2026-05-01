@@ -1,33 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const reports = [
-  {
-    id: 'MIN-RPT-2024-08',
-    name: 'State Utilization Summary',
-    period: 'Q1 2024',
-    status: 'ready',
-    generatedOn: '20 May 2024'
-  },
-  {
-    id: 'MIN-RPT-2024-07',
-    name: 'Scheme Leakage Check',
-    period: 'FY 2024-25',
-    status: 'processing',
-    generatedOn: '19 May 2024'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 const statusTone = (status) => (status === 'ready' ? 'low' : 'medium');
 
 export default function MinReports() {
   const [reportType, setReportType] = useState('State Utilization');
-  const [period, setPeriod] = useState('FY 2024-25');
+  const [period, setPeriod] = useState(() => {
+    try {
+      return `FY ${localStorage.getItem('jn_selected_fy') || '2024-25'}`;
+    } catch {
+      return 'FY 2024-25';
+    }
+  });
+  const [reportRows, setReportRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const fy = period.replace('FY ', '').trim();
+      const response = await apiGet(`/api/ministry/reports?financialYear=${encodeURIComponent(fy)}`);
+      const payload = response?.data || {};
+      setReportRows([
+        {
+          id: `MIN-RPT-${Date.now()}`,
+          name: `${reportType} Report`,
+          period,
+          status: 'ready',
+          generatedOn: new Date().toLocaleDateString(),
+          payload
+        }
+      ]);
+    } catch (err) {
+      setError(err.message || 'Unable to generate report.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
-      <Card title="Generate Ministry Report" action={<button className="btn">Generate</button>}>
+      <Card
+        title="Generate Ministry Report"
+        action={
+          <button className="btn" type="button" onClick={generate} disabled={loading}>
+            {loading ? 'Generating...' : 'Generate'}
+          </button>
+        }
+      >
         <div
           style={{
             display: 'grid',
@@ -57,6 +86,7 @@ export default function MinReports() {
         <div className="helper" style={{ marginTop: '10px' }}>
           Selected: {reportType} ({period})
         </div>
+        {error ? <div className="alert">{error}</div> : null}
       </Card>
 
       <Card title="Recent Reports">
@@ -72,7 +102,7 @@ export default function MinReports() {
             </tr>
           </thead>
           <tbody>
-            {reports.map((report) => (
+            {reportRows.map((report) => (
               <tr key={report.id}>
                 <td>{report.id}</td>
                 <td>{report.name}</td>
@@ -88,6 +118,11 @@ export default function MinReports() {
                 </td>
               </tr>
             ))}
+            {!loading && !error && !reportRows.length ? (
+              <tr>
+                <td colSpan="6" className="helper">No reports available.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </Card>

@@ -1,42 +1,71 @@
+import { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
+import { apiGet } from '../../services/api.js';
 
-const allocations = [
-  {
-    id: 'ALLOC-2024-011',
-    scheme: 'Ayushman Bharat',
-    amount: 7200,
-    released: 5600,
-    balance: 1600,
-    status: 'active',
-    hash: '0xa3f9c2e8b4d7...',
-    date: '01 Apr 2024'
-  },
-  {
-    id: 'ALLOC-2024-012',
-    scheme: 'PM POSHAN',
-    amount: 6000,
-    released: 4200,
-    balance: 1800,
-    status: 'active',
-    hash: '0xa7f4c2e8b9d1...',
-    date: '05 Apr 2024'
-  },
-  {
-    id: 'ALLOC-2024-013',
-    scheme: 'NHM',
-    amount: 5000,
-    released: 3500,
-    balance: 1500,
-    status: 'paused',
-    hash: '0xac3f1123b4d7...',
-    date: '10 Apr 2024'
-  }
-];
-
-const statusTone = (status) => (status === 'active' ? 'low' : 'medium');
+const formatCrore = (value) => `Rs ${Number(value || 0).toFixed(2)} Cr`;
 
 export default function MinViewBudget() {
+  const [allocations, setAllocations] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [schemes, setSchemes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    Promise.all([
+      apiGet('/api/ministry/budget'),
+      apiGet('/api/ministry/transactions'),
+      apiGet('/api/ministry/scheme/all')
+    ])
+      .then(([budgetResponse, txResponse, schemeResponse]) => {
+        if (!mounted) return;
+        setAllocations(budgetResponse?.data || []);
+        setTransactions(txResponse?.data || []);
+        setSchemes(schemeResponse?.data || []);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load budget view.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const summary = useMemo(() => {
+    const totalAllocated = allocations.reduce((sum, item) => sum + Number(item.amountCrore || 0), 0);
+    const totalReleased = transactions
+      .filter((tx) => tx.status === 'confirmed' && tx.fromRole === 'ministry_admin')
+      .reduce((sum, tx) => sum + Number(tx.amountCrore || 0), 0);
+    return {
+      totalAllocated,
+      totalReleased,
+      pendingRelease: totalAllocated - totalReleased,
+      activeSchemes: schemes.filter((item) => item.status === 'active').length
+    };
+  }, [allocations, transactions, schemes]);
+
+  const allocationRows = useMemo(() => {
+    return allocations.map((item) => ({
+      id: item.transactionId || item._id,
+      scheme: item.schemeName || 'Budget Allocation',
+      amount: Number(item.amountCrore || 0),
+      released: 0,
+      balance: Number(item.amountCrore || 0),
+      status: item.status || 'confirmed',
+      hash: item.blockchainTxHash || '-',
+      date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '-'
+    }));
+  }, [allocations]);
+
   return (
     <div className="grid" style={{ gap: '20px' }}>
       <Card title="Budget Summary">
@@ -49,19 +78,19 @@ export default function MinViewBudget() {
         >
           <div>
             <div className="helper">Total Allocated</div>
-            <div style={{ fontWeight: 600 }}>Rs 18,200 Cr</div>
+            <div style={{ fontWeight: 600 }}>{formatCrore(summary.totalAllocated)}</div>
           </div>
           <div>
             <div className="helper">Released to States</div>
-            <div style={{ fontWeight: 600 }}>Rs 13,300 Cr</div>
+            <div style={{ fontWeight: 600 }}>{formatCrore(summary.totalReleased)}</div>
           </div>
           <div>
             <div className="helper">Pending Release</div>
-            <div style={{ fontWeight: 600 }}>Rs 4,900 Cr</div>
+            <div style={{ fontWeight: 600 }}>{formatCrore(summary.pendingRelease)}</div>
           </div>
           <div>
             <div className="helper">Active Schemes</div>
-            <div style={{ fontWeight: 600 }}>5</div>
+            <div style={{ fontWeight: 600 }}>{summary.activeSchemes}</div>
           </div>
         </div>
       </Card>
@@ -81,20 +110,35 @@ export default function MinViewBudget() {
             </tr>
           </thead>
           <tbody>
-            {allocations.map((item) => (
+            {loading ? (
+              <tr>
+                <td colSpan="8" className="helper">Loading allocations...</td>
+              </tr>
+            ) : null}
+            {error ? (
+              <tr>
+                <td colSpan="8" className="helper">{error}</td>
+              </tr>
+            ) : null}
+            {allocationRows.map((item) => (
               <tr key={item.id}>
                 <td>{item.id}</td>
                 <td>{item.scheme}</td>
-                <td>Rs {item.amount}</td>
-                <td>Rs {item.released}</td>
-                <td>Rs {item.balance}</td>
+                <td>{formatCrore(item.amount)}</td>
+                <td>{formatCrore(item.released)}</td>
+                <td>{formatCrore(item.balance)}</td>
                 <td>
-                  <Badge tone={statusTone(item.status)} label={item.status.toUpperCase()} />
+                  <Badge tone={item.status === 'confirmed' ? 'low' : 'medium'} label={item.status.toUpperCase()} />
                 </td>
                 <td>{item.hash}</td>
                 <td>{item.date}</td>
               </tr>
             ))}
+            {!loading && !error && allocationRows.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="helper">No allocations found.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </Card>

@@ -1,60 +1,83 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const schemeData = {
-  'ab-2024': {
-    id: 'SCH-AB-2024',
-    name: 'Ayushman Bharat',
-    type: 'CSS 60:40',
-    budget: 7200,
-    released: 5600,
-    utilized: 3820,
-    status: 'active',
-    rules: ['Aadhaar verified', 'Income below threshold', 'Hospital empanelled'],
-    states: [
-      { state: 'Uttar Pradesh', released: 1100, utilized: 720, status: 'on-track' },
-      { state: 'Maharashtra', released: 900, utilized: 640, status: 'on-track' },
-      { state: 'Bihar', released: 600, utilized: 280, status: 'watch' }
-    ]
-  },
-  'poshan-2024': {
-    id: 'SCH-POSHAN-2024',
-    name: 'PM POSHAN',
-    type: 'Central 100%',
-    budget: 6000,
-    released: 4200,
-    utilized: 3250,
-    status: 'active',
-    rules: ['School enrollment mandatory', 'Nutrition committee approval'],
-    states: [
-      { state: 'Rajasthan', released: 800, utilized: 610, status: 'on-track' },
-      { state: 'Tamil Nadu', released: 650, utilized: 520, status: 'on-track' }
-    ]
-  },
-  'nhm-2024': {
-    id: 'SCH-NHM-2024',
-    name: 'NHM',
-    type: 'CSS 60:40',
-    budget: 5000,
-    released: 3500,
-    utilized: 2190,
-    status: 'paused',
-    rules: ['UC pending for last quarter', 'Facility audit required'],
-    states: [
-      { state: 'Assam', released: 420, utilized: 190, status: 'watch' }
-    ]
-  }
-};
+import { apiGet } from '../../services/api.js';
 
 const statusTone = (status) => (status === 'active' ? 'low' : 'medium');
-const progress = (value, total) => Math.round((value / total) * 100);
+const progress = (value, total) => {
+  if (!total) return 0;
+  return Math.round((Number(value || 0) / Number(total || 0)) * 100);
+};
+const formatCrore = (value) => `Rs ${Number(value || 0).toFixed(2)} Cr`;
 
 export default function MinSchemeDetail() {
   const { schemeId } = useParams();
-  const scheme = schemeData[schemeId] || schemeData['ab-2024'];
-  const releaseProgress = progress(scheme.released, scheme.budget);
-  const utilizationProgress = progress(scheme.utilized, scheme.released);
+  const [scheme, setScheme] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    Promise.all([apiGet(`/api/ministry/scheme/${schemeId}`), apiGet('/api/ministry/transactions')])
+      .then(([schemeResponse, txResponse]) => {
+        if (!mounted) return;
+        setScheme(schemeResponse?.data || null);
+        setTransactions(txResponse?.data || []);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load scheme details.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [schemeId]);
+
+  const stateRows = useMemo(() => {
+    if (!scheme) return [];
+    const rows = new Map();
+
+    transactions.forEach((tx) => {
+      if (tx.status !== 'confirmed' || tx.schemeId !== scheme.schemeId || tx.fromRole !== 'ministry_admin') return;
+      const key = tx.stateCode || tx.toCode || 'NA';
+      const prev = rows.get(key) || { state: key, released: 0 };
+      prev.released += Number(tx.amountCrore || 0);
+      rows.set(key, prev);
+    });
+
+    return [...rows.values()]
+      .map((row) => ({
+        ...row,
+        utilized: row.released,
+        status: 'on-track'
+      }))
+      .sort((a, b) => b.released - a.released);
+  }, [scheme, transactions]);
+
+  if (loading) {
+    return <div className="helper">Loading scheme details...</div>;
+  }
+
+  if (error || !scheme) {
+    return <div className="helper">{error || 'Scheme not found.'}</div>;
+  }
+
+  const releaseProgress = progress(
+    stateRows.reduce((sum, item) => sum + Number(item.released || 0), 0),
+    Number(scheme.totalBudgetCrore || 0)
+  );
+  const utilizationProgress = progress(
+    stateRows.reduce((sum, item) => sum + Number(item.utilized || 0), 0),
+    stateRows.reduce((sum, item) => sum + Number(item.released || 0), 0)
+  );
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
@@ -75,15 +98,15 @@ export default function MinSchemeDetail() {
         >
           <div>
             <div className="helper">Scheme</div>
-            <div style={{ fontWeight: 600 }}>{scheme.name}</div>
+            <div style={{ fontWeight: 600 }}>{scheme.schemeName}</div>
           </div>
           <div>
             <div className="helper">Scheme ID</div>
-            <div>{scheme.id}</div>
+            <div>{scheme.schemeId}</div>
           </div>
           <div>
             <div className="helper">Type</div>
-            <div>{scheme.type}</div>
+            <div>{scheme.schemeType}</div>
           </div>
           <div>
             <div className="helper">Status</div>
@@ -95,9 +118,9 @@ export default function MinSchemeDetail() {
       <div className="grid two">
         <Card title="Budget Snapshot">
           <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-            <div>Budget: Rs {scheme.budget} Cr</div>
-            <div>Released: Rs {scheme.released} Cr</div>
-            <div>Utilized: Rs {scheme.utilized} Cr</div>
+            <div>Budget: {formatCrore(scheme.totalBudgetCrore)}</div>
+            <div>Released: {formatCrore(stateRows.reduce((sum, item) => sum + Number(item.released || 0), 0))}</div>
+            <div>Utilized: {formatCrore(stateRows.reduce((sum, item) => sum + Number(item.utilized || 0), 0))}</div>
           </div>
           <div style={{ marginTop: '12px' }}>
             <div className="helper">Released ({releaseProgress}%)</div>
@@ -115,10 +138,13 @@ export default function MinSchemeDetail() {
 
         <Card title="Eligibility Rules">
           <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '8px' }}>
-            {scheme.rules.map((rule) => (
+            {(scheme.eligibilityRules || []).map((rule) => (
               <li key={rule}>{rule}</li>
             ))}
           </ul>
+          {!scheme.eligibilityRules?.length ? (
+            <div className="helper">No eligibility rules configured.</div>
+          ) : null}
         </Card>
       </div>
 
@@ -133,11 +159,11 @@ export default function MinSchemeDetail() {
             </tr>
           </thead>
           <tbody>
-            {scheme.states.map((state) => (
+            {stateRows.map((state) => (
               <tr key={state.state}>
                 <td>{state.state}</td>
-                <td>Rs {state.released}</td>
-                <td>Rs {state.utilized}</td>
+                <td>{formatCrore(state.released)}</td>
+                <td>{formatCrore(state.utilized)}</td>
                 <td>
                   <Badge
                     tone={state.status === 'on-track' ? 'low' : 'medium'}
@@ -146,6 +172,11 @@ export default function MinSchemeDetail() {
                 </td>
               </tr>
             ))}
+            {!stateRows.length ? (
+              <tr>
+                <td colSpan="4" className="helper">No state releases yet for this scheme.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </Card>

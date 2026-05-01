@@ -1,45 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
-
-const flags = [
-  {
-    id: 'FLAG-2024-021',
-    type: 'high',
-    scheme: 'Ayushman Bharat',
-    state: 'Bihar',
-    issue: 'Duplicate beneficiary batch',
-    status: 'awaiting_response',
-    date: '19 May 2024'
-  },
-  {
-    id: 'FLAG-2024-020',
-    type: 'medium',
-    scheme: 'PM POSHAN',
-    state: 'Rajasthan',
-    issue: 'Delayed UC submission',
-    status: 'under_review',
-    date: '18 May 2024'
-  },
-  {
-    id: 'FLAG-2024-019',
-    type: 'low',
-    scheme: 'NHM',
-    state: 'Assam',
-    issue: 'Utilization below 50%',
-    status: 'resolved',
-    date: '17 May 2024'
-  }
-];
+import { apiGet } from '../../services/api.js';
 
 export default function MinFlagCenter() {
   const [filter, setFilter] = useState('all');
-  const filtered = flags.filter((item) => filter === 'all' || item.type === filter);
+  const [flags, setFlags] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/ministry/flags')
+      .then((response) => {
+        if (!mounted) return;
+        setFlags(response?.data || []);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load flags.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filtered = flags.filter((item) => filter === 'all' || item.flagType === filter);
 
   return (
     <Card title="Flag Center" action={<button className="btn">Generate Report</button>}>
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-        {['all', 'high', 'medium', 'low'].map((item) => (
+        {['all', 'critical', 'high', 'medium', 'low'].map((item) => (
           <button
             key={item}
             className={item === filter ? 'btn' : 'btn secondary'}
@@ -64,17 +59,27 @@ export default function MinFlagCenter() {
           </tr>
         </thead>
         <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="8" className="helper">Loading flags...</td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="8" className="helper">{error}</td>
+            </tr>
+          ) : null}
           {filtered.map((flag) => (
-            <tr key={flag.id}>
-              <td>{flag.id}</td>
+            <tr key={flag._id}>
+              <td>{flag.flagId || flag._id}</td>
               <td>
-                <Badge tone={flag.type} label={flag.type.toUpperCase()} />
+                <Badge tone={flag.flagType} label={String(flag.flagType || '-').toUpperCase()} />
               </td>
-              <td>{flag.scheme}</td>
-              <td>{flag.state}</td>
-              <td>{flag.issue}</td>
-              <td>{flag.status.replace('_', ' ')}</td>
-              <td>{flag.date}</td>
+              <td>{flag.schemeName || flag.schemeId || '-'}</td>
+              <td>{flag.stateCode || '-'}</td>
+              <td>{flag.flagReason || '-'}</td>
+              <td>{String(flag.status || '-').replace('_', ' ')}</td>
+              <td>{flag.createdAt ? new Date(flag.createdAt).toLocaleDateString() : '-'}</td>
               <td>
                 <button className="btn secondary" type="button">
                   Review
@@ -82,6 +87,11 @@ export default function MinFlagCenter() {
               </td>
             </tr>
           ))}
+          {!loading && !error && !filtered.length ? (
+            <tr>
+              <td colSpan="8" className="helper">No flags found.</td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </Card>

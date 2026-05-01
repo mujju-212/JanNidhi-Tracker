@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function MinCreateScheme() {
-  const [schemeName, setSchemeName] = useState('Ayushman Bharat - PM-JAY');
-  const [schemeId, setSchemeId] = useState('MOHFW-CSS-2024-001');
-  const [schemeType, setSchemeType] = useState('Centrally Sponsored (60:40)');
-  const [budget, setBudget] = useState('7200');
-  const [perBeneficiary, setPerBeneficiary] = useState('500000');
-  const [rules, setRules] = useState([
-    'Aadhaar verification required',
-    'Below Poverty Line (SECC database)'
-  ]);
+  const [schemeName, setSchemeName] = useState('');
+  const [schemeId, setSchemeId] = useState('');
+  const [schemeType, setSchemeType] = useState('css');
+  const [budget, setBudget] = useState('');
+  const [perBeneficiary, setPerBeneficiary] = useState('');
+  const [rules, setRules] = useState(['']);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const addRule = () => {
     setRules((prev) => [...prev, '']);
@@ -18,6 +19,36 @@ export default function MinCreateScheme() {
 
   const updateRule = (index, value) => {
     setRules((prev) => prev.map((rule, i) => (i === index ? value : rule)));
+  };
+
+  const submitScheme = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await apiPost('/api/ministry/scheme/create', {
+        schemeId: schemeId.trim(),
+        schemeName: schemeName.trim(),
+        description: `${schemeName.trim()} for beneficiaries`,
+        schemeType,
+        totalBudgetCrore: Number(budget || 0),
+        perBeneficiaryAmount: Number(perBeneficiary || 0),
+        beneficiaryAmountType: 'annual',
+        targetBeneficiaries: 0,
+        eligibilityRules: rules.map((rule) => rule.trim()).filter(Boolean),
+        applicableStates: ['ALL'],
+        startDate: new Date().toISOString(),
+        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+        guidelineDocHash: null,
+        fundingRatioCentre: schemeType === 'css' ? 60 : 100,
+        fundingRatioState: schemeType === 'css' ? 40 : 0
+      });
+      setSuccess('Scheme created successfully.');
+    } catch (err) {
+      setError(err.message || 'Unable to create scheme.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,18 +65,19 @@ export default function MinCreateScheme() {
         <div className="form-group">
           <label>Scheme Type</label>
           <select value={schemeType} onChange={(event) => setSchemeType(event.target.value)}>
-            <option>Central Sector (100%)</option>
-            <option>Centrally Sponsored (60:40)</option>
-            <option>State Matching (50:50)</option>
+            <option value="central">Central Sector (100%)</option>
+            <option value="css">Centrally Sponsored (60:40)</option>
+            <option value="matching">State Matching (50:50)</option>
           </select>
         </div>
         <div className="form-group">
           <label>Total Budget (Cr)</label>
-          <input value={budget} onChange={(event) => setBudget(event.target.value)} />
+          <input type="number" value={budget} onChange={(event) => setBudget(event.target.value)} />
         </div>
         <div className="form-group">
           <label>Per Beneficiary Amount</label>
           <input
+            type="number"
             value={perBeneficiary}
             onChange={(event) => setPerBeneficiary(event.target.value)}
           />
@@ -66,7 +98,11 @@ export default function MinCreateScheme() {
             Add Rule
           </button>
         </div>
-        <button className="btn">Deploy Scheme on Blockchain</button>
+        <button className="btn" type="button" onClick={submitScheme} disabled={loading}>
+          {loading ? 'Submitting...' : 'Deploy Scheme on Blockchain'}
+        </button>
+        {error ? <div className="alert">{error}</div> : null}
+        {success ? <div className="helper">{success}</div> : null}
       </Card>
 
       <Card title="Preview">

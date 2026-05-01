@@ -1,12 +1,35 @@
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
-
-const transactions = [
-  { id: 'TXN-2024-001', state: 'Maharashtra', scheme: 'Ayushman Bharat', amount: '425', status: 'confirmed' },
-  { id: 'TXN-2024-002', state: 'UP', scheme: 'PM POSHAN', amount: '380', status: 'confirmed' },
-  { id: 'TXN-2024-003', state: 'Bihar', scheme: 'NHM', amount: '210', status: 'flagged' }
-];
+import Badge from '../../components/common/Badge.jsx';
+import { apiGet } from '../../services/api.js';
+const formatCrore = (value) => `Rs ${Number(value || 0).toFixed(2)} Cr`;
 
 export default function MinTransactions() {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    apiGet('/api/ministry/transactions')
+      .then((response) => {
+        if (!mounted) return;
+        setTransactions(response?.data || []);
+        setError('');
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setError(err.message || 'Unable to load transactions.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <Card title="Ministry Transactions">
       <table className="table">
@@ -21,18 +44,38 @@ export default function MinTransactions() {
           </tr>
         </thead>
         <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="6" className="helper">Loading transactions...</td>
+            </tr>
+          ) : null}
+          {error ? (
+            <tr>
+              <td colSpan="6" className="helper">{error}</td>
+            </tr>
+          ) : null}
           {transactions.map((tx) => (
-            <tr key={tx.id}>
-              <td>{tx.id}</td>
-              <td>{tx.state}</td>
-              <td>{tx.scheme}</td>
-              <td>Rs {tx.amount}</td>
-              <td>{tx.status}</td>
+            <tr key={tx._id}>
+              <td>{tx.transactionId}</td>
+              <td>{tx.toCode || '-'}</td>
+              <td>{tx.schemeName || tx.schemeId || '-'}</td>
+              <td>{formatCrore(tx.amountCrore)}</td>
               <td>
-                <button className="btn secondary">View</button>
+                <Badge
+                  tone={tx.isFlagged ? 'critical' : tx.status === 'confirmed' ? 'low' : 'medium'}
+                  label={tx.isFlagged ? 'FLAGGED' : String(tx.status || '-').toUpperCase()}
+                />
+              </td>
+              <td>
+                <button className="btn secondary" type="button">View</button>
               </td>
             </tr>
           ))}
+          {!loading && !error && !transactions.length ? (
+            <tr>
+              <td colSpan="6" className="helper">No transactions found.</td>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </Card>

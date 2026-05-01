@@ -1,28 +1,51 @@
 import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function MinCreateState() {
-  const [stateName, setStateName] = useState('Uttar Pradesh');
-  const [officer, setOfficer] = useState('Shri Ajay Verma');
-  const [designation, setDesignation] = useState('Principal Secretary (Finance)');
-  const [email, setEmail] = useState('finance.up@gov.in');
-  const [phone, setPhone] = useState('+91-98765-11111');
-  const [employeeId, setEmployeeId] = useState('IAS-2004-3456');
+  const [stateName, setStateName] = useState('');
+  const [stateCode, setStateCode] = useState('');
+  const [officer, setOfficer] = useState('');
+  const [designation, setDesignation] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const wallet = '0x1a2b...7d90';
+  const createAccount = async () => {
+    setLoading(true);
+    setError('');
+    setResult(null);
+    try {
+      const response = await apiPost('/api/ministry/state/create', {
+        state: stateName.trim(),
+        stateCode: stateCode.trim().toUpperCase(),
+        fullName: officer.trim(),
+        designation: designation.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        employeeId: employeeId.trim()
+      });
+      setResult(response?.data || null);
+    } catch (err) {
+      setError(err.message || 'Unable to create state account.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="grid" style={{ gap: '20px' }}>
       <Card title="Create State Admin Account">
         <div className="form-group">
           <label>State</label>
-          <select value={stateName} onChange={(event) => setStateName(event.target.value)}>
-            <option>Uttar Pradesh</option>
-            <option>Maharashtra</option>
-            <option>Bihar</option>
-            <option>Rajasthan</option>
-            <option>Tamil Nadu</option>
-          </select>
+          <input value={stateName} onChange={(event) => setStateName(event.target.value)} placeholder="Maharashtra" />
+        </div>
+        <div className="form-group">
+          <label>State Code</label>
+          <input value={stateCode} onChange={(event) => setStateCode(event.target.value)} placeholder="MH" />
         </div>
         <div className="form-group">
           <label>Officer Name</label>
@@ -46,9 +69,12 @@ export default function MinCreateState() {
         </div>
         <div className="form-group">
           <label>Wallet Address (Auto-generated)</label>
-          <input value={wallet} readOnly />
+          <input value={result?.walletAddress || '-'} readOnly />
         </div>
-        <button className="btn">Create Account & Send Credentials</button>
+        <button className="btn" type="button" onClick={createAccount} disabled={loading}>
+          {loading ? 'Creating...' : 'Create Account & Send Credentials'}
+        </button>
+        {error ? <div className="alert">{error}</div> : null}
       </Card>
 
       <Card title="Permissions Summary">
