@@ -40,7 +40,7 @@ const run = async () => {
   const schemes = await Scheme.insertMany([
     {
       schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', description: 'Direct income support of Rs 6000/year to farmer families',
-      ownerMinistryCode: 'MOHFW', ownerMinistryName: 'Ministry of Health & Family Welfare', createdByUser: ministry._id,
+      ownerMinistryCode: 'MOE', ownerMinistryName: 'Ministry of Education', createdByUser: ministry._id,
       schemeType: 'central_sector', totalBudgetCrore: 60000, perBeneficiaryAmount: 6000,
       beneficiaryAmountType: 'annual', targetBeneficiaries: 100000000,
       startDate: new Date('2024-04-01'), endDate: new Date('2025-03-31'), status: 'active',
@@ -48,7 +48,7 @@ const run = async () => {
     },
     {
       schemeId: 'AYUSHMAN-2024', schemeName: 'Ayushman Bharat PMJAY', description: 'Health insurance cover of Rs 5 lakh per family per year',
-      ownerMinistryCode: 'MOHFW', ownerMinistryName: 'Ministry of Health & Family Welfare', createdByUser: ministry._id,
+      ownerMinistryCode: 'MOE', ownerMinistryName: 'Ministry of Education', createdByUser: ministry._id,
       schemeType: 'centrally_sponsored', fundingRatioCentre: 60, fundingRatioState: 40,
       totalBudgetCrore: 7200, perBeneficiaryAmount: 500000,
       beneficiaryAmountType: 'annual', targetBeneficiaries: 50000000,
@@ -57,7 +57,7 @@ const run = async () => {
     },
     {
       schemeId: 'UJJWALA-2024', schemeName: 'Pradhan Mantri Ujjwala Yojana', description: 'Free LPG connections to women from BPL households',
-      ownerMinistryCode: 'MOHFW', ownerMinistryName: 'Ministry of Health & Family Welfare', createdByUser: ministry._id,
+      ownerMinistryCode: 'MOE', ownerMinistryName: 'Ministry of Education', createdByUser: ministry._id,
       schemeType: 'central_sector', totalBudgetCrore: 1800, perBeneficiaryAmount: 1600,
       beneficiaryAmountType: 'one_time', targetBeneficiaries: 10000000,
       startDate: new Date('2024-04-01'), endDate: new Date('2025-03-31'), status: 'active',
@@ -73,54 +73,54 @@ const run = async () => {
   const txns = await Transaction.insertMany([
     // Centre → Ministry (Budget Allocation)
     {
-      transactionId: `TXN-2024-MOHFW-${now - 30 * day}`, blockchainTxHash: '0xdemo_tx_001', blockNumber: 2001,
+      transactionId: `TXN-2024-MOE-${now - 30 * day}`, blockchainTxHash: '0xdemo_tx_001', blockNumber: 2001,
       fromRole: 'super_admin', fromName: 'Finance Ministry of India', fromCode: 'FIN_MIN',
-      toRole: 'ministry_admin', toName: 'Ministry of Health & Family Welfare', toCode: 'MOHFW',
+      toRole: 'ministry_admin', toName: 'Ministry of Education', toCode: 'MOE',
       toWalletAddress: ministry.walletAddress, amountCrore: 5000,
       schemeId: 'BUDGET_ALLOCATION', schemeName: 'Budget Allocation 2024-25',
-      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOHFW', status: 'confirmed',
+      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOE', status: 'confirmed',
       validations: { amountCheck: true, walletCheck: true, ucCheck: true, schemeActiveCheck: true }
     },
     {
-      transactionId: `TXN-2024-MOHFW-${now - 20 * day}`, blockchainTxHash: '0xdemo_tx_002', blockNumber: 2010,
+      transactionId: `TXN-2024-MOE-${now - 20 * day}`, blockchainTxHash: '0xdemo_tx_002', blockNumber: 2010,
       fromRole: 'super_admin', fromName: 'Finance Ministry of India', fromCode: 'FIN_MIN',
-      toRole: 'ministry_admin', toName: 'Ministry of Health & Family Welfare', toCode: 'MOHFW',
+      toRole: 'ministry_admin', toName: 'Ministry of Education', toCode: 'MOE',
       toWalletAddress: ministry.walletAddress, amountCrore: 3000,
       schemeId: 'BUDGET_ALLOCATION', schemeName: 'Budget Allocation 2024-25',
-      financialYear: '2024-25', quarter: 'Q2', ministryCode: 'MOHFW', status: 'confirmed',
+      financialYear: '2024-25', quarter: 'Q2', ministryCode: 'MOE', status: 'confirmed',
       validations: { amountCheck: true, walletCheck: true, ucCheck: true, schemeActiveCheck: true }
     },
     // Ministry → State (PM-KISAN)
     {
-      transactionId: `TXN-${now - 25 * day}-MOHFW-MH`, blockchainTxHash: '0xdemo_tx_003', blockNumber: 2020,
-      fromRole: 'ministry_admin', fromCode: 'MOHFW', fromName: 'Ministry of Health & Family Welfare',
-      toRole: 'state_admin', toCode: 'MH', toName: 'Maharashtra', toWalletAddress: state.walletAddress,
+      transactionId: `TXN-${now - 25 * day}-MOE-KA`, blockchainTxHash: '0xdemo_tx_003', blockNumber: 2020,
+      fromRole: 'ministry_admin', fromCode: 'MOE', fromName: 'Ministry of Education',
+      toRole: 'state_admin', toCode: 'KA', toName: 'Karnataka', toWalletAddress: state.walletAddress,
       amountCrore: 1200, schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi',
-      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOHFW', stateCode: 'MH', status: 'confirmed'
+      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOE', stateCode: 'KA', status: 'confirmed'
     },
     // Ministry → State (AYUSHMAN)
     {
-      transactionId: `TXN-${now - 22 * day}-MOHFW-MH-AY`, blockchainTxHash: '0xdemo_tx_004', blockNumber: 2025,
-      fromRole: 'ministry_admin', fromCode: 'MOHFW', fromName: 'Ministry of Health & Family Welfare',
-      toRole: 'state_admin', toCode: 'MH', toName: 'Maharashtra', toWalletAddress: state.walletAddress,
+      transactionId: `TXN-${now - 22 * day}-MOE-KA-AY`, blockchainTxHash: '0xdemo_tx_004', blockNumber: 2025,
+      fromRole: 'ministry_admin', fromCode: 'MOE', fromName: 'Ministry of Education',
+      toRole: 'state_admin', toCode: 'KA', toName: 'Karnataka', toWalletAddress: state.walletAddress,
       amountCrore: 800, schemeId: 'AYUSHMAN-2024', schemeName: 'Ayushman Bharat PMJAY',
-      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOHFW', stateCode: 'MH', status: 'confirmed'
+      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOE', stateCode: 'KA', status: 'confirmed'
     },
     // State → District (PM-KISAN)
     {
-      transactionId: `TXN-${now - 18 * day}-MH-PUNE`, blockchainTxHash: '0xdemo_tx_005', blockNumber: 2030,
-      fromRole: 'state_admin', fromCode: 'MH', fromName: 'Maharashtra',
-      toRole: 'district_admin', toCode: 'PUNE', toName: 'Pune', toWalletAddress: district.walletAddress,
+      transactionId: `TXN-${now - 18 * day}-KA-BLR`, blockchainTxHash: '0xdemo_tx_005', blockNumber: 2030,
+      fromRole: 'state_admin', fromCode: 'KA', fromName: 'Karnataka',
+      toRole: 'district_admin', toCode: 'BLR', toName: 'Bengaluru Urban', toWalletAddress: district.walletAddress,
       amountCrore: 350, schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi',
-      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOHFW', stateCode: 'MH', districtCode: 'PUNE', status: 'confirmed'
+      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOE', stateCode: 'KA', districtCode: 'BLR', status: 'confirmed'
     },
     // State → District (AYUSHMAN)
     {
-      transactionId: `TXN-${now - 15 * day}-MH-PUNE-AY`, blockchainTxHash: '0xdemo_tx_006', blockNumber: 2035,
-      fromRole: 'state_admin', fromCode: 'MH', fromName: 'Maharashtra',
-      toRole: 'district_admin', toCode: 'PUNE', toName: 'Pune', toWalletAddress: district.walletAddress,
+      transactionId: `TXN-${now - 15 * day}-KA-BLR-AY`, blockchainTxHash: '0xdemo_tx_006', blockNumber: 2035,
+      fromRole: 'state_admin', fromCode: 'KA', fromName: 'Karnataka',
+      toRole: 'district_admin', toCode: 'BLR', toName: 'Bengaluru Urban', toWalletAddress: district.walletAddress,
       amountCrore: 200, schemeId: 'AYUSHMAN-2024', schemeName: 'Ayushman Bharat PMJAY',
-      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOHFW', stateCode: 'MH', districtCode: 'PUNE', status: 'confirmed'
+      financialYear: '2024-25', quarter: 'Q1', ministryCode: 'MOE', stateCode: 'KA', districtCode: 'BLR', status: 'confirmed'
     }
   ]);
   console.log('✅ 6 transactions created (full fund flow chain)');
@@ -147,11 +147,11 @@ const run = async () => {
       aadhaarHash: aHash, aadhaarMasked: `XXXX XXXX ${b.aadhaar.slice(-4)}`,
       fullName: b.name, dateOfBirth: new Date(b.dob), gender: b.gender,
       bankAccountHash: hashA(b.bank + b.aadhaar), bankName: b.bank, ifscCode: b.ifsc,
-      state: 'Maharashtra', district: 'Pune', village: b.village,
+      state: 'Karnataka', district: 'Bengaluru Urban', village: b.village,
       enrolledByUser: district._id,
       enrollmentTxHash: `0xdemo_enroll_${b.aadhaar.slice(-4)}`, enrollmentBlockNumber: 3000 + bens.length,
       enrolledSchemes: [
-        { schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', enrolledByDistrict: 'Pune',
+        { schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', enrolledByDistrict: 'Bengaluru Urban',
           blockchainEnrollTxHash: `0xdemo_enroll_${b.aadhaar.slice(-4)}`, enrollBlockNumber: 3000 + bens.length }
       ]
     }));
@@ -159,7 +159,7 @@ const run = async () => {
   // Enroll first 4 also in Ayushman
   for (let i = 0; i < 4; i++) {
     bens[i].enrolledSchemes.push({
-      schemeId: 'AYUSHMAN-2024', schemeName: 'Ayushman Bharat PMJAY', enrolledByDistrict: 'Pune',
+      schemeId: 'AYUSHMAN-2024', schemeName: 'Ayushman Bharat PMJAY', enrolledByDistrict: 'Bengaluru Urban',
       blockchainEnrollTxHash: `0xdemo_ay_enroll_${i}`, enrollBlockNumber: 3100 + i
     });
     await bens[i].save();
@@ -172,7 +172,7 @@ const run = async () => {
     payments.push({
       paymentId: `PAY-KISAN-I1-${i}`, aadhaarHash: bens[i].aadhaarHash, beneficiaryDbId: bens[i]._id,
       schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', installmentNumber: 1, financialYear: '2024-25',
-      amount: 2000, state: 'Maharashtra', district: 'Pune',
+      amount: 2000, state: 'Karnataka', district: 'Bengaluru Urban',
       bankName: bens[i].bankName, ifscCode: bens[i].ifscCode,
       pfmsRef: `PFMS-KISAN-${1000 + i}`, npciRef: `NPCI-${2000 + i}`,
       blockchainTxHash: `0xdemo_pay_k1_${i}`, blockNumber: 4000 + i,
@@ -184,7 +184,7 @@ const run = async () => {
     payments.push({
       paymentId: `PAY-KISAN-I2-${i}`, aadhaarHash: bens[i].aadhaarHash, beneficiaryDbId: bens[i]._id,
       schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', installmentNumber: 2, financialYear: '2024-25',
-      amount: 2000, state: 'Maharashtra', district: 'Pune',
+      amount: 2000, state: 'Karnataka', district: 'Bengaluru Urban',
       bankName: bens[i].bankName, ifscCode: bens[i].ifscCode,
       pfmsRef: `PFMS-KISAN-${3000 + i}`, npciRef: `NPCI-${4000 + i}`,
       blockchainTxHash: `0xdemo_pay_k2_${i}`, blockNumber: 4100 + i,
@@ -195,7 +195,7 @@ const run = async () => {
   payments.push({
     paymentId: 'PAY-FAIL-001', aadhaarHash: bens[6].aadhaarHash, beneficiaryDbId: bens[6]._id,
     schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', installmentNumber: 2, financialYear: '2024-25',
-    amount: 2000, state: 'Maharashtra', district: 'Pune',
+    amount: 2000, state: 'Karnataka', district: 'Bengaluru Urban',
     bankName: bens[6].bankName, ifscCode: bens[6].ifscCode,
     status: 'failed', failureReason: 'Bank account inactive', triggeredBy: district._id, batchId: 'BATCH-KISAN-I2'
   });
@@ -208,28 +208,28 @@ const run = async () => {
       flagId: 'FLAG-DEMO-001', transactionId: txns[4].transactionId,
       blockchainTxHash: txns[4].blockchainTxHash, flagType: 'high', flagCode: 'SPEED_ANOMALY',
       flagReason: 'Funds released within 45 minutes of receiving with no UC uploaded',
-      raisedByType: 'auto_system', ministryCode: 'MOHFW', stateCode: 'MH', districtCode: 'PUNE',
+      raisedByType: 'auto_system', ministryCode: 'MOE', stateCode: 'KA', districtCode: 'BLR',
       responseDeadline: new Date(now + 5 * day), status: 'awaiting_response'
     },
     {
       flagId: 'FLAG-DEMO-002', transactionId: txns[2].transactionId,
       blockchainTxHash: txns[2].blockchainTxHash, flagType: 'medium', flagCode: 'ROUND_FIGURE',
       flagReason: 'Repeated round-figure transactions from same entity (6 in 30 days)',
-      raisedByType: 'auto_system', ministryCode: 'MOHFW', stateCode: 'MH',
+      raisedByType: 'auto_system', ministryCode: 'MOE', stateCode: 'KA',
       responseDeadline: new Date(now + 10 * day), status: 'active'
     },
     {
       flagId: 'FLAG-DEMO-003', transactionId: txns[5].transactionId,
       blockchainTxHash: txns[5].blockchainTxHash, flagType: 'critical', flagCode: 'AMOUNT_MISMATCH',
       flagReason: 'District tried to pay 2.50 Cr but only 1.80 Cr available — blocked by smart contract',
-      raisedByType: 'auto_system', districtCode: 'PUNE', stateCode: 'MH', ministryCode: 'MOHFW',
+      raisedByType: 'auto_system', districtCode: 'BLR', stateCode: 'KA', ministryCode: 'MOE',
       responseDeadline: new Date(now + 3 * day), status: 'active'
     },
     {
       flagId: 'FLAG-DEMO-004', transactionId: txns[3].transactionId,
       blockchainTxHash: txns[3].blockchainTxHash, flagType: 'info', flagCode: 'CITIZEN_COMPLAINT',
       flagReason: 'Citizen reported not receiving PM-KISAN installment despite showing success',
-      raisedByType: 'citizen', stateCode: 'MH', districtCode: 'PUNE',
+      raisedByType: 'citizen', stateCode: 'KA', districtCode: 'BLR',
       responseDeadline: new Date(now + 14 * day), status: 'resolved',
       cagDecision: { decision: 'resolved', decisionNote: 'Payment verified on NPCI — delay in bank credit', decidedAt: new Date(now - 2 * day) }
     }
@@ -243,14 +243,14 @@ const run = async () => {
       citizenPhone: '9876543210', complaintType: 'payment_not_received',
       schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', installmentNumber: 2,
       description: 'I have not received the 2nd installment of PM-KISAN. My neighbours have already received it.',
-      expectedAmount: 2000, receivedAmount: 0, state: 'Maharashtra', district: 'Pune', status: 'under_review'
+      expectedAmount: 2000, receivedAmount: 0, state: 'Karnataka', district: 'Bengaluru Urban', status: 'under_review'
     },
     {
       complaintId: 'CMP-DEMO-002', aadhaarHash: bens[5].aadhaarHash, aadhaarMasked: bens[5].aadhaarMasked,
       citizenPhone: '9988776655', complaintType: 'wrong_amount',
       schemeId: 'PM-KISAN-2024', schemeName: 'PM Kisan Samman Nidhi', installmentNumber: 1,
       description: 'Received only Rs 1500 instead of Rs 2000. Please check and credit the remaining amount.',
-      expectedAmount: 2000, receivedAmount: 1500, state: 'Maharashtra', district: 'Pune', status: 'received'
+      expectedAmount: 2000, receivedAmount: 1500, state: 'Karnataka', district: 'Bengaluru Urban', status: 'received'
     }
   ]);
   console.log('✅ 2 complaints created');

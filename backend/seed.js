@@ -16,54 +16,54 @@ const seed = async () => {
       phone: '9800000001',
       designation: 'Finance Minister',
       role: 'super_admin',
-      walletAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      walletAddress: '0x482c64D4f5db307A0BA0b8a89E47A029e97d4D68',
       isFirstLogin: false
     },
     {
       fullName: 'Dr. Rajesh Kumar',
-      email: 'secretary@mohfw.gov.in',
+      email: 'secretary@education.gov.in',
       password: 'Ministry@1234',
       employeeId: 'IAS-2024-002',
       phone: '9800000002',
-      designation: 'Secretary, MoHFW',
+      designation: 'Secretary, Ministry of Education',
       role: 'ministry_admin',
       jurisdiction: {
-        ministry: 'Ministry of Health & Family Welfare',
-        ministryCode: 'MOHFW'
+        ministry: 'Ministry of Education',
+        ministryCode: 'MOE'
       },
-      walletAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      walletAddress: '0x8FA367e26E1c9f303c9e87c32d595d02679BA621',
       isFirstLogin: false
     },
     {
       fullName: 'Rajiv Deshmukh',
-      email: 'finance@maharashtra.gov.in',
+      email: 'finance@karnataka.gov.in',
       password: 'State@1234',
       employeeId: 'IAS-2024-003',
       phone: '9800000003',
       designation: 'Principal Secretary, Finance',
       role: 'state_admin',
       jurisdiction: {
-        ministry: 'Ministry of Health & Family Welfare',
-        ministryCode: 'MOHFW',
-        state: 'Maharashtra',
-        stateCode: 'MH'
+        ministry: 'Ministry of Education',
+        ministryCode: 'MOE',
+        state: 'Karnataka',
+        stateCode: 'KA'
       },
-      walletAddress: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+      walletAddress: '0xb167128A58dDC814C5ed848412cC43d09781e0c5',
       isFirstLogin: false
     },
     {
       fullName: 'Sanjay Patil',
-      email: 'collector@pune.gov.in',
+      email: 'collector@bengaluru.gov.in',
       password: 'District@1234',
       employeeId: 'IAS-2024-004',
       phone: '9800000004',
-      designation: 'District Collector, Pune',
+      designation: 'District Commissioner, Bengaluru Urban',
       role: 'district_admin',
       jurisdiction: {
-        state: 'Maharashtra',
-        stateCode: 'MH',
-        district: 'Pune',
-        districtCode: 'PUNE'
+        state: 'Karnataka',
+        stateCode: 'KA',
+        district: 'Bengaluru Urban',
+        districtCode: 'BLR'
       },
       walletAddress: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
       isFirstLogin: false
@@ -88,9 +88,9 @@ const seed = async () => {
   await User.insertMany(users);
   console.log('Demo accounts seeded.');
   console.log('Super Admin:    admin@finmin.gov.in / Admin@1234');
-  console.log('Ministry Admin: secretary@mohfw.gov.in / Ministry@1234');
-  console.log('State Admin:    finance@maharashtra.gov.in / State@1234');
-  console.log('District Admin: collector@pune.gov.in / District@1234');
+  console.log('Ministry Admin: secretary@education.gov.in / Ministry@1234');
+  console.log('State Admin:    finance@karnataka.gov.in / State@1234');
+  console.log('District Admin: collector@bengaluru.gov.in / District@1234');
   console.log('CAG Auditor:    cag@cagindia.gov.in / CAG@12345');
   process.exit(0);
 };
