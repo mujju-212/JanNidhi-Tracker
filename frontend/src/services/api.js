@@ -1,11 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getToken = () => {
+const getStoredToken = (key) => {
   try {
-    return localStorage.getItem('jn_token');
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
+};
+
+const getTokenForPath = (path) => {
+  if (path.startsWith('/api/citizen')) {
+    return getStoredToken('jn_citizen_token');
+  }
+
+  if (path.startsWith('/api/public')) {
+    return null;
+  }
+
+  return getStoredToken('jn_token');
 };
 
 const buildUrl = (path) => {
@@ -21,7 +33,7 @@ const request = async (path, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
-  const token = getToken();
+  const token = getTokenForPath(path);
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }

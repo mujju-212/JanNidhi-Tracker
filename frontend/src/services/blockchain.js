@@ -11,6 +11,7 @@ const CONTRACTS = {
 // Minimal ABIs — only the functions we call from frontend
 const FUND_MANAGER_ABI = [
   'function registeredMinistries(address) view returns (bool)',
+  'function walletBalance(address) view returns (uint256)',
   'function registerMinistry(address _wallet, string _name, string _code, uint256 _budgetCap)',
   'function allocateBudget(address _ministryWallet, uint256 _amountCrore, string _transactionId, string _docHash)',
   'function releaseFunds(address _to, uint256 _amount, string _txId, string _schemeId, string _docHash)',
@@ -28,12 +29,32 @@ const AUDIT_LOGGER_ABI = [
   'function raiseFlag(string _flagId, string _txId, string _flagCode, string _flagReason)'
 ];
 
-// Connect MetaMask
+// Connect MetaMask — handles "already pending" gracefully
 export async function connectWallet() {
   if (!window.ethereum) {
     throw new Error('MetaMask not installed. Please install MetaMask extension.');
   }
-  const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+  let accounts;
+  try {
+    // First try to get already-connected accounts (no popup)
+    accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (!accounts || accounts.length === 0) {
+      // No accounts connected — request permission (this shows the MetaMask popup)
+      accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    }
+  } catch (err) {
+    if (err.code === -32002) {
+      // "Already pending" — wait a moment and try getting accounts
+      await new Promise(r => setTimeout(r, 1500));
+      accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (!accounts || accounts.length === 0) {
+        throw new Error('MetaMask connection pending. Please check the MetaMask popup.');
+      }
+    } else {
+      throw err;
+    }
+  }
 
   // Check if on Sepolia
   const chainId = await window.ethereum.request({ method: 'eth_chainId' });
@@ -50,6 +71,7 @@ export async function connectWallet() {
 
   return accounts[0];
 }
+
 
 // Get ethers provider + signer from MetaMask
 function getProviderAndSigner() {
@@ -93,13 +115,39 @@ export async function allocateBudgetOnChain(ministryWallet, amountCrore, transac
   return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
 }
 
-export async function releaseFundsOnChain(toWallet, amountCrore, transactionId, schemeId, docHash) {
+// Read on-chain balance for any wallet
+export async function getOnChainBalance(walletAddr) {
   const { fundManager } = await getContracts();
-  const tx = await fundManager.releaseFunds(
-    toWallet, BigInt(amountCrore), transactionId, schemeId, docHash || ''
-  );
-  const receipt = await tx.wait();
-  return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
+  const balance = await fundManager.walletBalance(walletAddr);
+  return Number(balance);
+}
+
+export async function releaseFundsOnChain(toWallet, amountCrore, transactionId, schemeId, docHash) {
+  const { fundManager, signer } = await getContracts();
+  const myAddr = await signer.getAddress();
+
+  // Check on-chain balance before attempting release
+  const balance = await fundManager.walletBalance(myAddr);
+  const balanceNum = Number(balance);
+  if (balanceNum < amountCrore) {
+    throw new Error(
+      `On-chain balance insufficient: Wallet ${myAddr.slice(0, 10)}... has ${balanceNum} Cr, but this transfer needs ${amountCrore} Cr. Connect the funded ministry/state wallet or receive funds on-chain first.`
+    );
+  }
+
+  try {
+    const tx = await fundManager.releaseFunds(
+      toWallet, BigInt(amountCrore), transactionId, schemeId, docHash || ''
+    );
+    const receipt = await tx.wait();
+    return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
+  } catch (err) {
+    const reason = err?.reason || err?.info?.error?.message || err?.message || '';
+    if (reason.includes('Only super admin')) {
+      throw new Error('Connected wallet is hitting a super-admin-only path. Reconnect the funded ministry/state wallet and reload the page before retrying.');
+    }
+    throw err;
+  }
 }
 
 // ─── SCHEME REGISTRY ───
