@@ -59,7 +59,68 @@ exports.getMyBenefits = async (req, res, next) => {
   try {
     const beneficiary = await Beneficiary.findOne({ aadhaarHash: req.citizen.aadhaarHash });
     if (!beneficiary) return error(res, 'Not enrolled', 404);
-    return success(res, 'Benefits loaded', beneficiary);
+
+    const payments = await Payment.find({ aadhaarHash: req.citizen.aadhaarHash })
+      .sort({ createdAt: -1 })
+      .select('schemeId amount status paidAt installmentNumber blockchainTxHash');
+
+    const paymentByScheme = new Map();
+    payments.forEach((payment) => {
+      const current = paymentByScheme.get(payment.schemeId) || {
+        totalPaid: 0,
+        paymentsCount: 0,
+        latestStatus: null,
+        latestPaidAt: null,
+        latestInstallment: null,
+        latestBlockchainTxHash: null
+      };
+      current.totalPaid += Number(payment.amount || 0);
+      current.paymentsCount += 1;
+      if (!current.latestPaidAt || new Date(payment.paidAt || payment.createdAt) > new Date(current.latestPaidAt)) {
+        current.latestStatus = payment.status;
+        current.latestPaidAt = payment.paidAt || payment.createdAt;
+        current.latestInstallment = payment.installmentNumber ?? null;
+        current.latestBlockchainTxHash = payment.blockchainTxHash || null;
+      }
+      paymentByScheme.set(payment.schemeId, current);
+    });
+
+    const schemes = (beneficiary.enrolledSchemes || []).map((scheme) => {
+      const paymentSummary = paymentByScheme.get(scheme.schemeId) || {
+        totalPaid: 0,
+        paymentsCount: 0,
+        latestStatus: 'not_started',
+        latestPaidAt: null,
+        latestInstallment: null,
+        latestBlockchainTxHash: null
+      };
+      return {
+        schemeId: scheme.schemeId,
+        schemeName: scheme.schemeName,
+        enrollmentStatus: scheme.status || 'active',
+        enrolledOn: scheme.enrolledOn,
+        enrolledByDistrict: scheme.enrolledByDistrict,
+        enrollmentTxHash: scheme.blockchainEnrollTxHash || null,
+        totalPaid: Number((paymentSummary.totalPaid / 1).toFixed(2)),
+        paymentsCount: paymentSummary.paymentsCount,
+        latestPaymentStatus: paymentSummary.latestStatus,
+        latestPaidAt: paymentSummary.latestPaidAt,
+        latestInstallment: paymentSummary.latestInstallment,
+        latestPaymentTxHash: paymentSummary.latestBlockchainTxHash
+      };
+    });
+
+    return success(res, 'Benefits loaded', {
+      citizen: {
+        name: beneficiary.fullName,
+        aadhaarMasked: beneficiary.aadhaarMasked,
+        bankName: beneficiary.bankName,
+        ifscCode: beneficiary.ifscCode,
+        state: beneficiary.state,
+        district: beneficiary.district
+      },
+      schemes
+    });
   } catch (err) {
     next(err);
   }
