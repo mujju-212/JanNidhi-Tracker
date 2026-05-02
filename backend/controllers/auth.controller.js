@@ -167,3 +167,18 @@ exports.changePassword = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.updateWallet = async (req, res, next) => {
+  try {
+    const { walletAddress } = req.body;
+    if (!walletAddress) {
+      return error(res, 'Wallet address required', 400);
+    }
+
+    await User.findByIdAndUpdate(req.user._id, { walletAddress: walletAddress.toLowerCase() });
+    return success(res, 'Wallet address updated', { walletAddress });
+  } catch (err) {
+    next(err);
+  }
+};
+
