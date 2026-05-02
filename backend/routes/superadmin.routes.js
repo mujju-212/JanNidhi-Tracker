@@ -12,6 +12,7 @@ router.get('/ministry/:id', controller.getMinistryById);
 router.post('/budget/allocate', controller.allocateBudget);
 router.get('/budget/history', controller.getBudgetHistory);
 router.post('/cag/create', controller.createCAGAccount);
+router.put('/cag/:id/assign-schemes', controller.assignCAGSchemes);
 router.get('/transactions', controller.getAllTransactions);
 router.get('/flags', controller.getAllFlags);
 router.get('/users', controller.getManagedUsers);

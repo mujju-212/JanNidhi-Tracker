@@ -178,25 +178,51 @@ exports.allocateBudget = async (req, res, next) => {
       financialYear,
       quarter,
       sanctionDocHash,
-      blockchainTxHash: frontendTxHash,
-      blockNumber: frontendBlockNumber
+      transactionId: frontendTransactionId
     } = req.body;
+
+    if (!ministryCode || !totalAmountCrore) {
+      return error(res, 'Ministry code and amount required', 400);
+    }
 
     const ministry = await User.findOne({ 'jurisdiction.ministryCode': ministryCode });
     if (!ministry) return error(res, 'Ministry not found', 404);
 
     const walletAddr = ministryWalletAddress || ministry.walletAddress;
-    const transactionId = `TXN-${financialYear}-${ministryCode}-${Date.now()}`;
+    const transactionId = frontendTransactionId || `TXN-${financialYear}-${ministryCode}-${Date.now()}`;
 
-    // If frontend already signed via MetaMask, use that hash directly
-    const txHash = frontendTxHash || 'PENDING';
-    const blockNum = frontendBlockNumber || null;
-    const status = frontendTxHash ? 'confirmed' : 'pending';
+    // ─── BLOCKCHAIN FIRST (server-side — backend has the deployer/superAdmin key) ───
+    let bcResult = { txHash: 'PENDING', blockNumber: null };
+    let status = 'pending';
 
+    try {
+      // Register ministry wallet on-chain if not already registered
+      await blockchainService.registerMinistry(
+        walletAddr,
+        ministry.jurisdiction.ministry,
+        ministryCode,
+        Number(ministry.budgetCapCrore || 99999)
+      ).catch(() => {}); // Ignore "already registered" errors
+
+      // Allocate budget on-chain (only superAdmin can do this)
+      bcResult = await blockchainService.allocateBudget(
+        walletAddr,
+        Number(totalAmountCrore),
+        transactionId,
+        sanctionDocHash || ''
+      );
+      status = 'confirmed';
+      console.log(`✅ Budget allocated on-chain: ${totalAmountCrore} Cr → ${walletAddr}`);
+    } catch (chainErr) {
+      console.error('❌ Blockchain allocation failed:', chainErr.message);
+      return error(res, `Blockchain allocation failed: ${chainErr.message}`, 500);
+    }
+
+    // ─── DB SAVE (only after blockchain confirms) ───
     const tx = await Transaction.create({
       transactionId,
-      blockchainTxHash: txHash,
-      blockNumber: blockNum,
+      blockchainTxHash: bcResult.txHash,
+      blockNumber: bcResult.blockNumber,
       fromRole: 'super_admin',
       fromWalletAddress: req.user?.walletAddress || null,
       fromName: 'Finance Ministry of India',
@@ -230,13 +256,15 @@ exports.allocateBudget = async (req, res, next) => {
 
     return success(res, 'Budget allocated', {
       transactionId,
-      blockchainTxHash: txHash,
-      blockNumber: blockNum,
+      blockchainTxHash: bcResult.txHash,
+      blockNumber: bcResult.blockNumber,
+      allocatedTo: walletAddr,
       status
     });
   } catch (err) {
     next(err);
   }
+
 };
 
 
@@ -259,7 +287,8 @@ exports.createCAGAccount = async (req, res, next) => {
       employeeId,
       role,
       jurisdiction,
-      designation
+      designation,
+      assignedSchemes
     } = req.body;
 
     if (!fullName || !email || !employeeId) return error(res, 'Missing required fields', 400);
@@ -282,6 +311,7 @@ exports.createCAGAccount = async (req, res, next) => {
       designation: designation || 'Auditor',
       role,
       jurisdiction: jurisdiction || {},
+      assignedSchemes: Array.isArray(assignedSchemes) ? assignedSchemes : [],
       walletAddress: wallet.address,
       createdBy: req.user._id,
       isFirstLogin: true
@@ -292,7 +322,36 @@ exports.createCAGAccount = async (req, res, next) => {
       walletAddress: wallet.address,
       walletPrivateKey: wallet.privateKey,
       walletMnemonic: wallet.mnemonic,
-      tempPassword
+      tempPassword,
+      assignedSchemes: user.assignedSchemes || []
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.assignCAGSchemes = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { assignedSchemes } = req.body;
+
+    if (!Array.isArray(assignedSchemes)) {
+      return error(res, 'assignedSchemes must be an array', 400);
+    }
+
+    const user = await User.findById(id);
+    if (!user) return error(res, 'Auditor not found', 404);
+    if (!['central_cag', 'state_auditor'].includes(user.role)) {
+      return error(res, 'Target user is not an auditor', 400);
+    }
+
+    user.assignedSchemes = assignedSchemes;
+    await user.save();
+
+    return success(res, 'Auditor scheme assignments updated', {
+      id: user._id,
+      role: user.role,
+      assignedSchemes: user.assignedSchemes
     });
   } catch (err) {
     next(err);
