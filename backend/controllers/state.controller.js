@@ -95,8 +95,26 @@ exports.getAllDistricts = async (req, res, next) => {
 
 exports.releaseFundsToDistrict = async (req, res, next) => {
   try {
-    const { districtCode, districtWalletAddress, amountCrore, schemeId, schemeName, ucDocHash } = req.body;
+    const {
+      districtCode,
+      districtWalletAddress,
+      amountCrore,
+      schemeId,
+      schemeName,
+      ucDocHash,
+      transactionId: frontendTxId,
+      blockchainTxHash: frontendTxHash,
+      blockNumber: frontendBlockNumber
+    } = req.body;
     const state = req.user;
+    const amount = Number(amountCrore || 0);
+
+    if (!districtCode || !districtWalletAddress || !schemeId) {
+      return error(res, 'Missing required fields for transfer.', 400);
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return error(res, 'Amount must be greater than 0.', 400);
+    }
 
     const received = await Transaction.aggregate([
       { $match: { toCode: state.jurisdiction.stateCode, status: { $in: ['confirmed', 'pending'] } } },
@@ -108,23 +126,44 @@ exports.releaseFundsToDistrict = async (req, res, next) => {
     ]);
 
     const available = (received[0]?.total || 0) - (released[0]?.total || 0);
-    if (amountCrore > available) {
+    if (amount > available) {
       return error(res, `Insufficient balance. Available: ${available} Cr`, 400);
     }
 
-    const transactionId = `TXN-${Date.now()}-${state.jurisdiction.stateCode}-${districtCode}`;
+    const transactionId = frontendTxId || `TXN-${Date.now()}-${state.jurisdiction.stateCode}-${districtCode}`;
 
+    // Blockchain FIRST — if frontend already signed via MetaMask, use that
+    let bcTxHash = frontendTxHash || null;
+    let bcBlockNumber = frontendBlockNumber || null;
+
+    if (!bcTxHash) {
+      // No frontend MetaMask — try server-side blockchain
+      const { blockchainReady } = require('../config/blockchain').getContracts();
+      if (!blockchainReady) {
+        return error(res, 'Blockchain not ready. Connect MetaMask or configure server blockchain.', 503);
+      }
+      try {
+        const bcResult = await blockchainService.releaseFunds(districtWalletAddress, amount, transactionId, schemeId, ucDocHash || '');
+        bcTxHash = bcResult.txHash;
+        bcBlockNumber = bcResult.blockNumber;
+      } catch (chainErr) {
+        // Blockchain failed — DO NOT save to DB
+        return error(res, `Blockchain transfer failed: ${chainErr.message}. No record saved.`, 502);
+      }
+    }
+
+    // Only save to DB AFTER blockchain success
     const tx = await Transaction.create({
       transactionId,
-      blockchainTxHash: 'PENDING',
-      blockNumber: null,
+      blockchainTxHash: bcTxHash,
+      blockNumber: bcBlockNumber,
       fromRole: 'state_admin',
       fromCode: state.jurisdiction.stateCode,
       fromName: state.jurisdiction.state,
       toRole: 'district_admin',
       toCode: districtCode,
       toWalletAddress: districtWalletAddress,
-      amountCrore,
+      amountCrore: amount,
       schemeId,
       schemeName,
       financialYear: req.body.financialYear || '2024-25',
@@ -138,23 +177,12 @@ exports.releaseFundsToDistrict = async (req, res, next) => {
     emitToAuditors(io, 'new_transaction', { transaction: tx, type: 'DISTRICT_RELEASE', severity: 'normal' });
     flagEngine.runFlagChecks(tx, io).catch(e => console.error('Flag check error:', e.message));
 
-    res.json({ success: true, message: 'Funds released to district', data: { transactionId } });
-
-    // Blockchain in background
-    const { blockchainReady } = require('../config/blockchain').getContracts();
-    if (blockchainReady) {
-      blockchainService.releaseFunds(districtWalletAddress, amountCrore, transactionId, schemeId)
-        .then(async (bcResult) => {
-          await Transaction.findByIdAndUpdate(tx._id, {
-            blockchainTxHash: bcResult.txHash, blockNumber: bcResult.blockNumber
-          });
-          console.log(`✅ Blockchain confirmed: ${transactionId}`);
-        }).catch(err => console.error(`❌ Blockchain failed: ${transactionId}:`, err.message));
-    }
+    return success(res, 'Funds released to district', tx);
   } catch (err) {
     next(err);
   }
 };
+
 
 
 exports.getTransactions = async (req, res, next) => {

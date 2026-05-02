@@ -49,32 +49,49 @@ exports.createScheme = async (req, res, next) => {
       schemeId,
       schemeName,
       description,
-      schemeType,
       totalBudgetCrore,
       perBeneficiaryAmount,
       beneficiaryAmountType,
       targetBeneficiaries,
-      eligibilityRules,
       applicableStates,
       startDate,
       endDate,
       guidelineDocHash,
       fundingRatioCentre,
-      fundingRatioState
+      fundingRatioState,
+      blockchainTxHash: frontendTxHash,
+      blockNumber: frontendBlockNumber
     } = req.body;
 
-    if (!schemeId || !schemeName || !description || !schemeType || !totalBudgetCrore) {
+    if (!schemeId || !schemeName || !description || !totalBudgetCrore) {
       return error(res, 'Missing required fields', 400);
     }
 
-    const bcResult = await blockchainService.createScheme(
-      schemeId,
-      schemeName,
-      ministryCode,
-      totalBudgetCrore,
-      startDate,
-      endDate
-    );
+    // Normalize schemeType — accept shorthand values from frontend
+    const schemeTypeMap = {
+      central: 'central_sector',
+      central_sector: 'central_sector',
+      css: 'centrally_sponsored',
+      centrally_sponsored: 'centrally_sponsored',
+      matching: 'state_scheme',
+      state_scheme: 'state_scheme'
+    };
+    const schemeType = schemeTypeMap[req.body.schemeType] || 'central_sector';
+
+    // Normalize eligibilityRules — accept both strings and objects
+    let eligibilityRules = req.body.eligibilityRules || [];
+    eligibilityRules = eligibilityRules.map((rule, i) => {
+      if (typeof rule === 'string') {
+        return { ruleText: rule, ruleCode: `RULE_${i + 1}` };
+      }
+      return rule;
+    });
+
+    // Scheme creation is DB-only (no money moving)
+    // If frontend already signed via MetaMask, store the hash
+    const bcTxHash = frontendTxHash || null;
+    const bcBlockNumber = frontendBlockNumber || null;
+
 
     const scheme = await Scheme.create({
       schemeId,
@@ -90,13 +107,13 @@ exports.createScheme = async (req, res, next) => {
       perBeneficiaryAmount: perBeneficiaryAmount ?? 0,
       beneficiaryAmountType: beneficiaryAmountType || 'annual',
       targetBeneficiaries: targetBeneficiaries ?? 0,
-      eligibilityRules: eligibilityRules || [],
+      eligibilityRules,
       applicableStates: applicableStates || ['ALL'],
       startDate,
       endDate,
       guidelineDocHash: guidelineDocHash || null,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber,
+      blockchainTxHash: bcTxHash,
+      blockNumber: bcBlockNumber,
       status: 'active'
     });
 
@@ -105,6 +122,7 @@ exports.createScheme = async (req, res, next) => {
     next(err);
   }
 };
+
 
 exports.getAllSchemes = async (req, res, next) => {
   try {
@@ -183,8 +201,26 @@ exports.getAllStates = async (req, res, next) => {
 
 exports.releaseFundsToState = async (req, res, next) => {
   try {
-    const { stateCode, stateWalletAddress, amountCrore, schemeId, schemeName, ucDocHash } = req.body;
+    const {
+      stateCode,
+      stateWalletAddress,
+      amountCrore,
+      schemeId,
+      schemeName,
+      ucDocHash,
+      transactionId: frontendTxId,
+      blockchainTxHash: frontendTxHash,
+      blockNumber: frontendBlockNumber
+    } = req.body;
     const ministry = req.user;
+    const amount = Number(amountCrore || 0);
+
+    if (!stateCode || !stateWalletAddress || !schemeId) {
+      return error(res, 'Missing required fields for blockchain transfer.', 400);
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return error(res, 'Amount must be greater than 0.', 400);
+    }
 
     const received = await Transaction.aggregate([
       { $match: { toCode: ministry.jurisdiction.ministryCode, status: { $in: ['confirmed', 'pending'] } } },
@@ -196,7 +232,7 @@ exports.releaseFundsToState = async (req, res, next) => {
     ]);
 
     const available = (received[0]?.total || 0) - (released[0]?.total || 0);
-    if (amountCrore > available) {
+    if (amount > available) {
       return error(res, `Insufficient balance. Available: ${available} Cr`, 400);
     }
 
@@ -205,20 +241,56 @@ exports.releaseFundsToState = async (req, res, next) => {
       return error(res, 'Scheme inactive or not found', 400);
     }
 
-    const transactionId = `TXN-${Date.now()}-${ministry.jurisdiction.ministryCode}-${stateCode}`;
+    const transactionId = frontendTxId || `TXN-${Date.now()}-${ministry.jurisdiction.ministryCode}-${stateCode}`;
+    const { blockchainReady } = require('../config/blockchain').getContracts();
 
-    // Save to DB immediately
+    let bcResult = null;
+    if (frontendTxHash) {
+      bcResult = {
+        txHash: frontendTxHash,
+        blockNumber: frontendBlockNumber ?? null
+      };
+    } else {
+      if (!blockchainReady) {
+        return error(res, 'Blockchain not ready. Configure contracts and retry.', 503);
+      }
+      try {
+        bcResult = await blockchainService.releaseFunds(stateWalletAddress, amount, transactionId, schemeId, ucDocHash);
+      } catch (chainErr) {
+        await Transaction.create({
+          transactionId,
+          blockchainTxHash: null,
+          blockNumber: null,
+          fromRole: 'ministry_admin',
+          fromCode: ministry.jurisdiction.ministryCode,
+          fromName: ministry.jurisdiction.ministry,
+          toRole: 'state_admin',
+          toCode: stateCode,
+          toWalletAddress: stateWalletAddress,
+          amountCrore: amount,
+          schemeId,
+          schemeName: schemeName || scheme.schemeName,
+          financialYear: req.body.financialYear || '2024-25',
+          ministryCode: ministry.jurisdiction.ministryCode,
+          stateCode,
+          ucDocHash,
+          status: 'failed'
+        });
+        return error(res, `Blockchain transfer failed: ${chainErr.message}`, 502);
+      }
+    }
+
     const tx = await Transaction.create({
       transactionId,
-      blockchainTxHash: 'PENDING',
-      blockNumber: null,
+      blockchainTxHash: bcResult.txHash,
+      blockNumber: bcResult.blockNumber,
       fromRole: 'ministry_admin',
       fromCode: ministry.jurisdiction.ministryCode,
       fromName: ministry.jurisdiction.ministry,
       toRole: 'state_admin',
       toCode: stateCode,
       toWalletAddress: stateWalletAddress,
-      amountCrore,
+      amountCrore: amount,
       schemeId,
       schemeName: schemeName || scheme.schemeName,
       financialYear: req.body.financialYear || '2024-25',
@@ -232,19 +304,12 @@ exports.releaseFundsToState = async (req, res, next) => {
     emitToAuditors(io, 'new_transaction', { transaction: tx, type: 'STATE_RELEASE', severity: 'normal' });
     flagEngine.runFlagChecks(tx, io).catch(e => console.error('Flag check error:', e.message));
 
-    res.json({ success: true, message: 'Funds released to state', data: { transactionId } });
-
-    // Blockchain in background
-    const { blockchainReady } = require('../config/blockchain').getContracts();
-    if (blockchainReady) {
-      blockchainService.releaseFunds(stateWalletAddress, amountCrore, transactionId, schemeId)
-        .then(async (bcResult) => {
-          await Transaction.findByIdAndUpdate(tx._id, {
-            blockchainTxHash: bcResult.txHash, blockNumber: bcResult.blockNumber
-          });
-          console.log(`✅ Blockchain confirmed: ${transactionId}`);
-        }).catch(err => console.error(`❌ Blockchain failed: ${transactionId}:`, err.message));
-    }
+    return success(res, 'Funds released to state', {
+      transactionId,
+      blockchainTxHash: bcResult.txHash,
+      blockNumber: bcResult.blockNumber,
+      status: 'confirmed'
+    });
   } catch (err) {
     next(err);
   }
