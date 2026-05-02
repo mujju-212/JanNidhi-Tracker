@@ -57,6 +57,39 @@ const slides = [
   }
 ];
 
+const demoCredentials = [
+  {
+    label: 'Demo Super Admin',
+    role: 'super_admin',
+    email: 'admin@finmin.gov.in',
+    password: 'Admin@1234'
+  },
+  {
+    label: 'Education Ministry',
+    role: 'ministry_admin',
+    email: 'secretary@education.gov.in',
+    password: 'Ministry@1234'
+  },
+  {
+    label: 'Karnataka State',
+    role: 'state_admin',
+    email: 'finance@karnataka.gov.in',
+    password: 'State@1234'
+  },
+  {
+    label: 'Bengaluru District',
+    role: 'district_admin',
+    email: 'collector@bengaluru.gov.in',
+    password: 'District@1234'
+  },
+  {
+    label: 'Demo CAG',
+    role: 'central_cag',
+    email: 'cag@cagindia.gov.in',
+    password: 'CAG@12345'
+  }
+];
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -140,6 +173,17 @@ export default function LoginPage() {
     }
   };
 
+  const applyDemo = (item) => {
+    setRole(item.role);
+    setEmail(item.email);
+    setPassword(item.password);
+    setOtp('');
+    setOtpSent(false);
+    setPendingUserId(null);
+    setStatus(`Loaded ${item.label} credentials.`);
+    setError('');
+  };
+
   return (
     <div className="login-page">
       <div className="login-hero">
@@ -197,6 +241,24 @@ export default function LoginPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="form-group">
+          <label>Quick Demo Login</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {demoCredentials.map((item) => (
+              <button
+                key={item.label}
+                className="btn secondary"
+                type="button"
+                style={{ fontSize: '12px', padding: '6px 10px' }}
+                onClick={() => applyDemo(item)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <span className="helper">Use Education Ministry, Karnataka State, and Bengaluru District demo buttons to auto-fill the correct credentials.</span>
         </div>
 
         <div className="form-group">
