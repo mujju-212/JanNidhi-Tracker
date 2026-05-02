@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import CitizenRoute from './components/common/CitizenRoute.jsx';
 import ProtectedRoute from './components/common/ProtectedRoute.jsx';
 import LoginPage from './pages/auth/LoginPage.jsx';
 import SALayout from './pages/superadmin/SALayout.jsx';
@@ -71,24 +72,34 @@ import PublicLayout from './pages/public/PublicLayout.jsx';
 import PublicHome from './pages/public/PublicHome.jsx';
 import ExploreByLocation from './pages/public/ExploreByLocation.jsx';
 import ExploreByScheme from './pages/public/ExploreByScheme.jsx';
+import PublicSchemeDetail from './pages/public/PublicSchemeDetail.jsx';
 import VerifyTransaction from './pages/public/VerifyTransaction.jsx';
 import AadhaarLogin from './pages/public/AadhaarLogin.jsx';
 import CitizenDashboard from './pages/public/CitizenDashboard.jsx';
 import UserProfile from './pages/common/UserProfile.jsx';
+import LandingPage from './pages/LandingPage.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/public" element={<PublicLayout />}>
         <Route index element={<PublicHome />} />
         <Route path="explore" element={<ExploreByLocation />} />
         <Route path="schemes" element={<ExploreByScheme />} />
+        <Route path="schemes/:schemeId" element={<PublicSchemeDetail />} />
         <Route path="verify" element={<VerifyTransaction />} />
         <Route path="citizen-login" element={<AadhaarLogin />} />
-        <Route path="citizen-dashboard" element={<CitizenDashboard />} />
+        <Route
+          path="citizen-dashboard"
+          element={
+            <CitizenRoute>
+              <CitizenDashboard />
+            </CitizenRoute>
+          }
+        />
       </Route>
 
       <Route

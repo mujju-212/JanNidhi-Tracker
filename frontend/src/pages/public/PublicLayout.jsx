@@ -1,6 +1,19 @@
 import { Link, Outlet } from 'react-router-dom';
 
 export default function PublicLayout() {
+  const hasCitizenToken = (() => {
+    try {
+      return Boolean(localStorage.getItem('jn_citizen_token'));
+    } catch {
+      return false;
+    }
+  })();
+
+  const handleCitizenLogout = () => {
+    localStorage.removeItem('jn_citizen_token');
+    window.location.href = '/public';
+  };
+
   return (
     <div>
       <header style={{ padding: '16px 32px', background: '#ffffff', borderBottom: '1px solid #e5eaf2' }}>
@@ -14,7 +27,8 @@ export default function PublicLayout() {
             <Link to="/public/explore">Explore</Link>
             <Link to="/public/schemes">Schemes</Link>
             <Link to="/public/verify">Verify</Link>
-            <Link to="/public/citizen-login">Citizen Login</Link>
+            {hasCitizenToken ? <Link to="/public/citizen-dashboard">My Benefits</Link> : <Link to="/public/citizen-login">Citizen Login</Link>}
+            {hasCitizenToken ? <button type="button" className="btn secondary" onClick={handleCitizenLogout}>Logout</button> : null}
           </nav>
         </div>
       </header>
