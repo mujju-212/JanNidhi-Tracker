@@ -30,6 +30,7 @@ app.use(
 app.use(express.json());
 app.set('io', io);
 
+// ─── Routes ───
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/superadmin', require('./routes/superadmin.routes'));
 app.use('/api/ministry', require('./routes/ministry.routes'));
@@ -38,6 +39,7 @@ app.use('/api/district', require('./routes/district.routes'));
 app.use('/api/auditor', require('./routes/auditor.routes'));
 app.use('/api/public', require('./routes/public.routes'));
 app.use('/api/citizen', require('./routes/citizen.routes'));
+app.use('/api/blockchain', require('./routes/blockchain.routes'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'JanNidhi API Running', time: new Date() });
@@ -73,4 +75,3 @@ const start = async () => {
 };
 
 start();
-
