@@ -33,6 +33,7 @@ export default function SACreateMinistry() {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [step, setStep] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const ministryCode = useMemo(() => {
     return `${toCode(ministryName)}-2024`;
@@ -43,6 +44,7 @@ export default function SACreateMinistry() {
     setError('');
     setResult(null);
     setStep('');
+    setSuccessMessage('');
 
     if (!ministryName || !hod || !email || !employeeId) {
       setError('Please fill all required fields.');
@@ -64,7 +66,10 @@ export default function SACreateMinistry() {
         budgetCapCrore: Number(budgetCap || 0)
       });
       setResult(response?.data || {});
-      setStep('');
+      setSuccessMessage(
+        response?.message || `Ministry account created successfully for ${ministryName} (${ministryCode}).`
+      );
+      setStep('Completed');
     } catch (err) {
       setError(err.message || 'Unable to create ministry account.');
       setStep('');
@@ -152,6 +157,8 @@ export default function SACreateMinistry() {
               onClick={() => {
                 setError('');
                 setResult(null);
+                setStep('');
+                setSuccessMessage('');
               }}
             >
               Reset
@@ -159,6 +166,7 @@ export default function SACreateMinistry() {
           </div>
         </form>
         {loading && step ? <div className="helper" style={{ marginTop: '12px' }}>{step}</div> : null}
+        {!loading && successMessage ? <div className="helper" style={{ marginTop: '12px' }}>{successMessage}</div> : null}
         {error ? <div className="alert" style={{ marginTop: '12px' }}>{error}</div> : null}
       </Card>
 
@@ -175,7 +183,7 @@ export default function SACreateMinistry() {
       {result ? (
         <Card title="Success">
           <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-            <div>Ministry account created successfully.</div>
+            <div>{successMessage || 'Ministry account created successfully.'}</div>
             <div>Wallet Address: {result.walletAddress || '-'}</div>
             <div>Blockchain Tx Hash: {result.blockchainTx?.txHash || '-'}</div>
             <div>Block Number: {result.blockchainTx?.blockNumber ?? '-'}</div>

@@ -182,16 +182,19 @@ export default function SADashboard() {
 
   const sankeyData = useMemo(() => {
     const top = ministryDistribution.slice(0, 6);
+    const total = top.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const nodes = [{ name: 'Finance Ministry' }, ...top.map((item) => ({ name: item.ministry }))];
     const links = top.map((item, index) => ({
       source: 0,
       target: index + 1,
-      value: Number(item.amount || 0)
+      value: total > 0 ? Number(((Number(item.amount || 0) / total) * 100).toFixed(2)) : 0,
+      actualAmount: Number(item.amount || 0),
+      shareLabel: total > 0 ? `${((Number(item.amount || 0) / total) * 100).toFixed(1)}%` : '0%'
     }));
-    return { nodes, links };
+    return { nodes, links, total };
   }, [ministryDistribution]);
 
-  const showSankey = sankeyData.links.length > 1;
+  const showSankey = sankeyData.links.length > 0;
 
   const criticalAlerts = useMemo(
     () =>
@@ -259,7 +262,7 @@ export default function SADashboard() {
         <Card title="Fund Flow Sankey (Finance to Ministries)" action={<span className="helper">Top ministries</span>}>
           {showSankey ? (
             <div className="sa-chart-wrap">
-              <FundFlowSankey data={sankeyData} />
+              <FundFlowSankey data={sankeyData} totalAllocation={sankeyData.total} />
             </div>
           ) : (
             <div className="sa-mini-flow">

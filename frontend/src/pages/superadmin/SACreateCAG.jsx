@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from '../../components/common/Card.jsx';
-import { apiPost } from '../../services/api.js';
+import { apiGet, apiPost } from '../../services/api.js';
 
 export default function SACreateCAG() {
   const [name, setName] = useState('Shri G. K. Pillai');
@@ -10,9 +10,27 @@ export default function SACreateCAG() {
   const [email, setEmail] = useState('cag.office@gov.in');
   const [phone, setPhone] = useState('+91-98765-43210');
   const [designation, setDesignation] = useState('Auditor');
+  const [schemeOptions, setSchemeOptions] = useState([]);
+  const [assignedSchemes, setAssignedSchemes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    apiGet('/api/superadmin/schemes')
+      .then((response) => {
+        if (!mounted) return;
+        setSchemeOptions(response?.data || []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSchemeOptions([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSubmit = async () => {
     setError('');
@@ -34,7 +52,8 @@ export default function SACreateCAG() {
           role === 'state_auditor' && jurisdiction !== 'All India'
             ? { state: jurisdiction, stateCode: jurisdiction.toUpperCase().slice(0, 3) }
             : {},
-        designation
+        designation,
+        assignedSchemes
       });
       setResult(response?.data || null);
     } catch (err) {
@@ -87,6 +106,31 @@ export default function SACreateCAG() {
         <div className="form-group">
           <label>Wallet Address (Auto-generated)</label>
           <input value={result?.walletAddress || ''} readOnly />
+        </div>
+        <div className="form-group">
+          <label>Assigned Schemes (Optional)</label>
+          <div style={{ display: 'grid', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+            {schemeOptions.length === 0 ? (
+              <div className="helper">No schemes available. Auditor will have unrestricted scheme scope.</div>
+            ) : (
+              schemeOptions.map((scheme) => (
+                <label key={scheme.schemeId} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={assignedSchemes.includes(scheme.schemeId)}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setAssignedSchemes((prev) => [...new Set([...prev, scheme.schemeId])]);
+                      } else {
+                        setAssignedSchemes((prev) => prev.filter((id) => id !== scheme.schemeId));
+                      }
+                    }}
+                  />
+                  <span>{scheme.schemeName} ({scheme.schemeId})</span>
+                </label>
+              ))
+            )}
+          </div>
         </div>
         {error ? <div className="alert">{error}</div> : null}
         <button className="btn" type="button" onClick={handleSubmit} disabled={loading}>
