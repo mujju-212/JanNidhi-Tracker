@@ -3,6 +3,8 @@ import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import { apiGet, apiPut } from '../../services/api.js';
 
+const ETHERSCAN = 'https://sepolia.etherscan.io';
+
 export default function CAGFlagManagement() {
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,8 @@ export default function CAGFlagManagement() {
               <th>Type</th>
               <th>Code</th>
               <th>Reason</th>
+              <th>TXN ID</th>
+              <th>Chain TX</th>
               <th>Ministry</th>
               <th>State</th>
               <th>Status</th>
@@ -70,13 +74,20 @@ export default function CAGFlagManagement() {
             </tr>
           </thead>
           <tbody>
-            {flags.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: '20px' }}>No flags found</td></tr>}
+            {flags.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', padding: '20px' }}>No flags found</td></tr>}
             {flags.map((flag) => (
               <tr key={flag._id}>
                 <td style={{ fontSize: '12px', fontWeight: 600 }}>{flag.flagId}</td>
                 <td><Badge tone={flag.flagType} label={flag.flagType?.toUpperCase()} /></td>
                 <td style={{ fontSize: '12px' }}>{flag.flagCode}</td>
                 <td style={{ fontSize: '12px', maxWidth: '200px' }}>{flag.flagReason?.slice(0, 80)}</td>
+                <td style={{ fontSize: '10px', fontFamily: 'monospace' }}>{flag.transactionId || '-'}</td>
+                <td style={{ fontSize: '10px', fontFamily: 'monospace' }}>
+                  {flag.blockchainTxHash && flag.blockchainTxHash !== 'PENDING' ? (
+                    <a href={`${ETHERSCAN}/tx/${flag.blockchainTxHash}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#0f4aa7' }}>{flag.blockchainTxHash.slice(0, 12)}...</a>
+                  ) : <span style={{ opacity: 0.4 }}>-</span>}
+                </td>
                 <td style={{ fontSize: '12px' }}>{flag.ministryCode || '-'}</td>
                 <td style={{ fontSize: '12px' }}>{flag.stateCode || '-'}</td>
                 <td><Badge tone={flag.status === 'resolved' ? 'low' : 'medium'} label={flag.status?.replace(/_/g, ' ')} /></td>
