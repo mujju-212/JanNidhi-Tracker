@@ -3,6 +3,8 @@ import Card from '../../components/common/Card.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import { apiGet } from '../../services/api.js';
 
+const ETHERSCAN = 'https://sepolia.etherscan.io';
+
 export default function DTTransactions() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,22 +20,52 @@ export default function DTTransactions() {
 
   return (
     <Card title={`District Transactions (${transactions.length})`}>
-      <table className="table">
-        <thead><tr><th>TXN ID</th><th>From</th><th>To</th><th>Scheme</th><th>Amount (Cr)</th><th>Status</th></tr></thead>
-        <tbody>
-          {transactions.length === 0 && <tr><td colSpan={6} className="helper">No transactions</td></tr>}
-          {transactions.map((tx) => (
-            <tr key={tx._id}>
-              <td style={{ fontSize: '12px' }}>{tx.transactionId}</td>
-              <td>{tx.fromName || tx.fromCode}</td>
-              <td>{tx.toName || tx.toCode}</td>
-              <td>{tx.schemeName || tx.schemeId}</td>
-              <td>Rs {tx.amountCrore}</td>
-              <td><Badge tone={tx.status === 'confirmed' ? 'low' : 'medium'} label={tx.status} /></td>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>TXN ID</th>
+              <th>From → To</th>
+              <th>Scheme</th>
+              <th>Amount</th>
+              <th>Blockchain TX</th>
+              <th>Block</th>
+              <th>Status</th>
+              <th>Date</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {transactions.length === 0 && <tr><td colSpan={8} className="helper">No transactions</td></tr>}
+            {transactions.map((tx) => (
+              <tr key={tx._id}>
+                <td style={{ fontSize: '11px', fontFamily: 'monospace' }}>{tx.transactionId}</td>
+                <td style={{ fontSize: '12px' }}>
+                  {tx.fromName || tx.fromCode || '-'}
+                  <br /><span style={{ opacity: 0.5 }}>→ {tx.toName || tx.toCode || '-'}</span>
+                </td>
+                <td style={{ fontSize: '12px' }}>{tx.schemeName || tx.schemeId || '-'}</td>
+                <td style={{ fontWeight: 600 }}>₹{tx.amountCrore} Cr</td>
+                <td style={{ fontSize: '10px', fontFamily: 'monospace' }}>
+                  {tx.blockchainTxHash && tx.blockchainTxHash !== 'PENDING' ? (
+                    <a href={`${ETHERSCAN}/tx/${tx.blockchainTxHash}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#0f4aa7', textDecoration: 'underline' }}>
+                      {tx.blockchainTxHash.slice(0, 14)}...
+                    </a>
+                  ) : <Badge tone="medium" label="PENDING" />}
+                </td>
+                <td>
+                  {tx.blockNumber ? (
+                    <a href={`${ETHERSCAN}/block/${tx.blockNumber}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#0f4aa7', fontSize: '12px' }}>#{tx.blockNumber}</a>
+                  ) : '-'}
+                </td>
+                <td><Badge tone={tx.status === 'confirmed' ? 'low' : 'medium'} label={String(tx.status || '-').toUpperCase()} /></td>
+                <td style={{ fontSize: '11px' }}>{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }

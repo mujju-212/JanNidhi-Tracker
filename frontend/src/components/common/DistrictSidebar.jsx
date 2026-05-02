@@ -4,12 +4,10 @@ import {
   UserPlus,
   Users,
   CreditCard,
-  Send,
   ClipboardList,
   MessageCircle,
   ShieldAlert,
   UploadCloud,
-  Building2,
   WalletCards,
   FileText
 } from 'lucide-react';
@@ -19,16 +17,12 @@ import emblem from '../../assets/emblem.jpg';
 const items = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/district/dashboard' },
   { label: 'View Funds', icon: WalletCards, to: '/district/view-funds' },
-  { label: 'Release Funds', icon: Send, to: '/district/release-funds' },
   { label: 'Add Beneficiary', icon: UserPlus, to: '/district/add-beneficiary' },
   { label: 'Bulk Enroll', icon: UploadCloud, to: '/district/bulk-enroll' },
   { label: 'Beneficiary List', icon: Users, to: '/district/beneficiaries' },
   { label: 'Trigger Payment', icon: CreditCard, to: '/district/trigger-payment' },
   { label: 'Payment Status', icon: FileText, to: '/district/payment-status' },
-  { label: 'Held Payments', icon: FileText, to: '/district/held-payments' },
   { label: 'Transactions', icon: ClipboardList, to: '/district/transactions' },
-  { label: 'Taluk Accounts', icon: Building2, to: '/district/blocks' },
-  { label: 'Panchayat Accounts', icon: Building2, to: '/district/panchayats' },
   { label: 'Complaints', icon: MessageCircle, to: '/district/complaints' },
   { label: 'Flag Center', icon: ShieldAlert, to: '/district/flags' },
   { label: 'Submit UC', icon: UploadCloud, to: '/district/submit-uc' }

@@ -1,42 +1,62 @@
+import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function DTSubmitUC() {
-  return (
-    <div className="grid" style={{ gap: '20px' }}>
-      <Card title="Submit Utilization Certificate">
-        <div className="form-group">
-          <label>Scheme</label>
-          <select>
-            <option>PM-KISAN</option>
-            <option>PM POSHAN</option>
-            <option>Ayushman Bharat</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Installment</label>
-          <select>
-            <option>Q1 2024</option>
-            <option>Q2 2024</option>
-            <option>Q3 2024</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Amount Utilized (Cr)</label>
-          <input placeholder="Enter utilized amount" />
-        </div>
-        <div className="form-group">
-          <label>Upload UC Document</label>
-          <input type="file" />
-        </div>
-        <button className="btn">Submit UC</button>
-      </Card>
+  const [schemeId, setSchemeId] = useState('PM-KISAN-2024');
+  const [quarter, setQuarter] = useState('Q1');
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-      <Card title="Pending UCs">
-        <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-          <div>PM POSHAN - Q4 2023 (10 days overdue)</div>
-          <div>PM-KISAN - Q1 2024 (5 days overdue)</div>
-        </div>
-      </Card>
-    </div>
+  const handleSubmit = async () => {
+    if (!amount) { setError('Enter utilized amount'); return; }
+    setLoading(true); setError(''); setSuccess('');
+    try {
+      // district UC submission — reuses a generic endpoint pattern
+      await apiPost('/api/district/payment/trigger', {
+        schemeId, installment: 0, type: 'UC_SUBMISSION',
+        ucAmountCrore: Number(amount), quarter
+      });
+      setSuccess('UC submitted successfully!');
+      setAmount('');
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Card title="Submit Utilization Certificate">
+      <div className="form-group">
+        <label>Scheme</label>
+        <select value={schemeId} onChange={(e) => setSchemeId(e.target.value)}>
+          <option value="PM-KISAN-2024">PM Kisan Samman Nidhi</option>
+          <option value="AYUSHMAN-2024">Ayushman Bharat PMJAY</option>
+          <option value="UJJWALA-2024">PM Ujjwala Yojana</option>
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Quarter</label>
+        <select value={quarter} onChange={(e) => setQuarter(e.target.value)}>
+          <option value="Q1">Q1 (Apr-Jun)</option>
+          <option value="Q2">Q2 (Jul-Sep)</option>
+          <option value="Q3">Q3 (Oct-Dec)</option>
+          <option value="Q4">Q4 (Jan-Mar)</option>
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Amount Utilized (Cr)</label>
+        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Upload UC Document</label>
+        <input type="file" />
+      </div>
+      <button className="btn" type="button" onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Submitting...' : 'Submit UC'}
+      </button>
+      {error && <div className="alert" style={{ marginTop: '8px' }}>{error}</div>}
+      {success && <div className="helper" style={{ marginTop: '8px' }}>{success}</div>}
+    </Card>
   );
 }

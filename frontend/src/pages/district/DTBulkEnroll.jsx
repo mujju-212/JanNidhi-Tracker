@@ -1,31 +1,39 @@
+import { useState } from 'react';
 import Card from '../../components/common/Card.jsx';
+import { apiPost } from '../../services/api.js';
 
 export default function DTBulkEnroll() {
-  return (
-    <div className="grid" style={{ gap: '20px' }}>
-      <Card title="Bulk Enroll Beneficiaries">
-        <div className="form-group">
-          <label>Upload CSV File</label>
-          <input type="file" />
-        </div>
-        <div className="form-group">
-          <label>Scheme</label>
-          <select>
-            <option>PM-KISAN</option>
-            <option>PM POSHAN</option>
-            <option>Ayushman Bharat</option>
-          </select>
-        </div>
-        <button className="btn">Validate & Enroll</button>
-      </Card>
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
 
-      <Card title="CSV Requirements">
-        <div className="helper" style={{ display: 'grid', gap: '8px' }}>
-          <div>Required columns: name, aadhaar, bank_ifsc, account_number, mobile.</div>
-          <div>Only .csv files are accepted. Max 5,000 rows per batch.</div>
-          <div>Duplicate Aadhaar will be flagged automatically.</div>
-        </div>
-      </Card>
-    </div>
+  const handleUpload = async () => {
+    if (!file) { setError('Please select a CSV file'); return; }
+    setLoading(true); setError(''); setResult(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiPost('/api/district/beneficiary/add', fd);
+      setResult(res?.data || { message: 'Uploaded successfully' });
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Card title="Bulk Beneficiary Enrollment">
+      <div className="helper" style={{ marginBottom: '12px' }}>
+        Upload a CSV file with columns: aadhaarNumber, fullName, dateOfBirth, gender, bankName, ifscCode, village, schemeId
+      </div>
+      <div className="form-group">
+        <label>Upload CSV</label>
+        <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0])} />
+      </div>
+      <button className="btn" type="button" onClick={handleUpload} disabled={loading}>
+        {loading ? 'Uploading...' : 'Upload & Enroll'}
+      </button>
+      {error && <div className="alert" style={{ marginTop: '8px' }}>{error}</div>}
+      {result && <div className="helper" style={{ marginTop: '8px' }}>✅ {result.message || 'Bulk enrollment complete'}</div>}
+    </Card>
   );
 }
