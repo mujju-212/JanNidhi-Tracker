@@ -76,8 +76,7 @@ exports.addBeneficiary = async (req, res, next) => {
     const exists = await Beneficiary.findOne({ aadhaarHash, 'enrolledSchemes.schemeId': schemeId });
     if (exists) return error(res, 'Beneficiary already enrolled in this scheme', 409);
 
-    const bcResult = await blockchainService.enrollBeneficiary(aadhaarHash, schemeId);
-
+    // DB save first — enrollment is not a money transaction
     const beneficiary = await Beneficiary.findOneAndUpdate(
       { aadhaarHash },
       {
@@ -98,28 +97,28 @@ exports.addBeneficiary = async (req, res, next) => {
           enrolledSchemes: {
             schemeId,
             schemeName,
-            enrolledByDistrict: req.user.jurisdiction.district,
-            blockchainEnrollTxHash: bcResult.txHash,
-            enrollBlockNumber: bcResult.blockNumber
+            enrolledByDistrict: req.user.jurisdiction.district
           }
-        },
-        $set: {
-          enrollmentTxHash: bcResult.txHash,
-          enrollmentBlockNumber: bcResult.blockNumber
         }
       },
       { upsert: true, new: true }
     );
 
+    // Enrollment is DB-only — no money is moving, no blockchain needed
+    // Blockchain is only used when actual payment (money) is triggered
+
     return success(res, 'Beneficiary enrolled', {
       beneficiaryId: beneficiary._id,
-      blockchainTxHash: bcResult.txHash,
-      blockNumber: bcResult.blockNumber
+      fullName: aadhaarResult.data.name,
+      aadhaarMasked,
+      bankName: bankResult.data.bankName
     }, 201);
   } catch (err) {
     next(err);
   }
 };
+
+
 
 exports.getBeneficiaries = async (req, res, next) => {
   try {
@@ -227,36 +226,63 @@ exports.triggerPayment = async (req, res, next) => {
         continue;
       }
 
-      const bcResult = await blockchainService.recordPayment(
-        paymentId,
-        ben.aadhaarHash,
-        schemeId,
-        amountPerBeneficiary
-      );
+      // Blockchain FIRST — payment is money, must confirm on chain before DB
+      try {
+        const bcResult = await blockchainService.recordPayment(
+          paymentId,
+          ben.aadhaarHash,
+          schemeId,
+          amountPerBeneficiary
+        );
 
-      await Payment.create({
-        paymentId,
-        aadhaarHash: ben.aadhaarHash,
-        beneficiaryDbId: ben._id,
-        schemeId,
-        schemeName,
-        installmentNumber,
-        financialYear,
-        amount: amountPerBeneficiary,
-        district: district.jurisdiction.district,
-        bankName: ben.bankName,
-        ifscCode: ben.ifscCode,
-        pfmsRef: `PFMS-${Date.now()}`,
-        npciRef: `NPCI-${Date.now()}`,
-        blockchainTxHash: bcResult.txHash,
-        blockNumber: bcResult.blockNumber,
-        status: 'success',
-        paidAt: new Date(),
-        triggeredBy: req.user._id,
-        batchId
-      });
-      results.success++;
+        // Only save to DB after blockchain confirms
+        await Payment.create({
+          paymentId,
+          aadhaarHash: ben.aadhaarHash,
+          beneficiaryDbId: ben._id,
+          schemeId,
+          schemeName,
+          installmentNumber,
+          financialYear,
+          amount: amountPerBeneficiary,
+          district: district.jurisdiction.district,
+          bankName: ben.bankName,
+          ifscCode: ben.ifscCode,
+          pfmsRef: `PFMS-${Date.now()}`,
+          npciRef: `NPCI-${Date.now()}`,
+          blockchainTxHash: bcResult.txHash,
+          blockNumber: bcResult.blockNumber,
+          status: 'success',
+          paidAt: new Date(),
+          triggeredBy: req.user._id,
+          batchId
+        });
+        results.success++;
+      } catch (chainErr) {
+        // Blockchain failed for this beneficiary — record failure
+        await Payment.create({
+          paymentId,
+          aadhaarHash: ben.aadhaarHash,
+          beneficiaryDbId: ben._id,
+          schemeId,
+          schemeName,
+          installmentNumber,
+          financialYear,
+          amount: amountPerBeneficiary,
+          district: district.jurisdiction.district,
+          bankName: ben.bankName,
+          ifscCode: ben.ifscCode,
+          status: 'failed',
+          isHeld: true,
+          holdReason: `BLOCKCHAIN_FAILED: ${chainErr.message}`,
+          triggeredBy: req.user._id,
+          batchId
+        });
+        results.failed++;
+        console.error(`❌ Payment blockchain failed for ${ben.aadhaarMasked}:`, chainErr.message);
+      }
     }
+
 
     return success(res, 'Batch payment complete', {
       batchId,
